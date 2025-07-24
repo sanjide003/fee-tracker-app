@@ -1,1 +1,92 @@
-h
+<!DOCTYPE html> 
+<html lang="en" class="dark"> 
+<head> 
+    <meta charset="UTF-8"> 
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+    <title>DSD 003- Fee Tracking App</title> 
+    <script src="https://cdn.tailwindcss.com"></script> 
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"> 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script> 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script> 
+    <style> 
+        :root { 
+            --background-dark: #1f2937; 
+            --text-dark: #f9fafb; 
+            --card-dark: #374151; 
+            --border-dark: #4b5563; 
+            --primary-dark: #60a5fa; 
+            --edit-mode-border: #facc15; /* Yellow-400 */ 
+        } 
+        html.dark { 
+            background-color: var(--background-dark); 
+            color: var(--text-dark); 
+        } 
+        body { 
+            font-family: 'Inter', sans-serif; 
+        } 
+        .card { 
+            background-color: var(--card-dark); 
+            border: 1px solid var(--border-dark); 
+        } 
+        .btn-primary { 
+            background-color: var(--primary-dark); 
+            color: #1f2937; 
+        } 
+        .table-header { 
+            background-color: #4b5563; 
+        } 
+        .popup-overlay { 
+            background-color: rgba(0, 0, 0, 0.7); 
+        } 
+        .month-paid { 
+            background-color: #166534 !important; /* Dark Green */ 
+            color: #d1d5db !important; 
+            border-color: #14532d !important; 
+            cursor: not-allowed; 
+        } 
+        .month-editable { 
+            cursor: pointer !important; 
+            border: 2px solid var(--edit-mode-border) !important; 
+        } 
+        .edit-mode-active #fee-entry-card { 
+            border: 2px solid var(--edit-mode-border); 
+            box-shadow: 0 0 15px rgba(250, 204, 21, 0.5); 
+        } 
+        .settings-tab-btn.active { 
+            background-color: var(--primary-dark); 
+            color: var(--background-dark); 
+        } 
+        .main-nav-item, .header-nav-link { 
+            border-bottom: 3px solid transparent; 
+            transition: color 0.2s ease-in-out, border-color 0.2s ease-in-out; 
+            padding-bottom: 5px; 
+        } 
+        .main-nav-item.active, .header-nav-link.active { 
+            background-color: transparent; 
+            color: var(--primary-dark); 
+            border-color: var(--primary-dark); 
+            box-shadow: none; 
+        } 
+        input[type=number]::-webkit-inner-spin-button,  
+        input[type=number]::-webkit-outer-spin-button {  
+            -webkit-appearance: none;  
+            margin: 0;  
+        } 
+        input[type=number] { 
+            -moz-appearance: textfield; 
+        } 
+        .spinner { 
+            border: 2px solid #f3f3f3; 
+            border-top: 2px solid #3498db; 
+            border-radius: 50%; 
+            width: 16px; 
+            height: 16px; 
+            animation: spin 1s linear infinite; 
+        } 
+        @keyframes spin { 
+            0% { transform: rotate(0deg); } 
+            100% { transform: rotate(360deg); } 
+        } 
+    </style> 
+</head> 
+<body class="antialiased">
