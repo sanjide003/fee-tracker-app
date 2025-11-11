@@ -1,0 +1,2763 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DSD 003- Fee Tracking App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <style>
+        :root {
+            --background-dark: #1f2937;
+            --text-dark: #f9fafb;
+            --card-dark: #374151;
+            --border-dark: #4b5563;
+            --primary-dark: #60a5fa;
+            --edit-mode-border: #facc15; /* Yellow-400 */
+        }
+        html.dark {
+            background-color: var(--background-dark);
+            color: var(--text-dark);
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .card {
+            background-color: var(--card-dark);
+            border: 1px solid var(--border-dark);
+        }
+        .btn-primary {
+            background-color: var(--primary-dark);
+            color: #1f2937;
+        }
+        .btn-primary:disabled {
+            background-color: #4b5563;
+            cursor: not-allowed;
+        }
+        .table-header {
+            background-color: #4b5563;
+        }
+        .popup-overlay {
+            background-color: rgba(0, 0, 0, 0.7);
+        }
+        .month-paid {
+            background-color: #166534 !important; /* Dark Green */
+            color: #d1d5db !important;
+            border-color: #14532d !important;
+            cursor: not-allowed;
+        }
+        .month-editable {
+            cursor: pointer !important;
+            border: 2px solid var(--edit-mode-border) !important;
+        }
+        .edit-mode-active #fee-entry-card {
+             border: 2px solid var(--edit-mode-border);
+             box-shadow: 0 0 15px rgba(250, 204, 21, 0.5);
+        }
+        .settings-tab-btn.active {
+            background-color: var(--primary-dark);
+            color: var(--background-dark);
+        }
+        /* Main Nav Highlight Styles */
+        .main-nav-item, .header-nav-link {
+            border-bottom: 3px solid transparent;
+            transition: color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+            padding-bottom: 5px; 
+        }
+        .main-nav-item.active, .header-nav-link.active {
+            background-color: transparent;
+            color: var(--primary-dark);
+            border-color: var(--primary-dark);
+            box-shadow: none;
+        }
+        /* Hide number input arrows */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+          -webkit-appearance: none; 
+          margin: 0; 
+        }
+        input[type=number] {
+          -moz-appearance: textfield;
+        }
+        /* Loading spinner */
+        .spinner {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3498db;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Report card styles */
+        .report-card {
+            background-color: #2d3748;
+            border: 1px solid var(--border-dark);
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        /* SortableJS styles */
+        .sortable-ghost {
+            opacity: 0.4;
+            background: #4b5563;
+        }
+        .drag-handle {
+            cursor: move; /* fallback */
+            cursor: grab;
+        }
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+        .month-toggle-icon {
+            transition: transform 0.3s ease;
+        }
+        .rotate-180 {
+            transform: rotate(180deg);
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div id="app" class="min-h-screen">
+        <div class="sticky top-0 z-30 card shadow-md rounded-none">
+            <header class="container mx-auto px-4 py-2 flex justify-between items-center">
+                <a href="#monthly-collected" class="nav-link header-nav-link p-2 rounded-lg" data-lang-key-title="monthlyCollected" title="Collected Per Month">
+                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                </a>
+    
+                <div class="text-center">
+                    <h1 id="app-name-header" class="text-lg font-bold">DSD 003- Fee Tracking App</h1>
+                    <p id="app-subtitle-header" class="text-xs opacity-70">©2025 by muhammed sanjide.p</p>
+                </div>
+    
+                <button id="lang-switcher" class="p-2 rounded-lg w-10 h-10 flex items-center justify-center" title="Change Language">
+                     <span id="lang-indicator" class="font-bold text-2xl">e</span>
+                </button>
+            </header>
+
+            <div id="main-nav-bar" class="border-t border-gray-700">
+                <nav class="flex items-center justify-around text-gray-300">
+                    <a href="#home" class="nav-link main-nav-item flex items-center justify-center h-9 w-full" data-lang-key-title="home" title="Home">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" /></svg>
+                    </a>
+                    <a href="#history" class="nav-link main-nav-item flex items-center justify-center h-9 w-full" data-lang-key-title="history" title="Recent">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" /></svg>
+                    </a>
+                    <a href="#fee" class="nav-link main-nav-item flex items-center justify-center h-9 w-full" data-lang-key-title="fee" title="FEE">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" /><path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd" /></svg>
+                    </a>
+                    <a href="#add-students" class="nav-link main-nav-item flex items-center justify-center h-9 w-full" data-lang-key-title="addStudentsNav" title="Add">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 11a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1v-1z" /></svg>
+                    </a>
+                     <a href="#settings" class="nav-link main-nav-item flex items-center justify-center h-9 w-full" data-lang-key-title="settings" title="Settings">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01-.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" /></svg>
+                    </a>
+                </nav>
+            </div>
+        </div>
+
+        <main class="container mx-auto p-4">
+            <div id="page-content">
+                <section id="home-page" class="page">
+                    <div id="fee-entry-card" class="card p-4 mb-6 rounded-lg shadow transition-all duration-300">
+                        <div class="flex justify-between items-center mb-4">
+                             <h2 id="fee-entry-title" class="text-lg font-semibold" data-lang-key="feeEntry">Fee Entry</h2>
+                        </div>
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label for="entry-class" class="block text-sm font-medium mb-1" data-lang-key="class">Class</label>
+                                    <select id="entry-class" class="w-full p-2 border rounded-md bg-gray-600 border-gray-500"></select>
+                                </div>
+                                <div>
+                                    <label for="entry-gender" class="block text-sm font-medium mb-1" data-lang-key="gender">Gender</label>
+                                    <select id="entry-gender" class="w-full p-2 border rounded-md bg-gray-600 border-gray-500">
+                                        <option value="Male" data-lang-key="male">Male</option>
+                                        <option value="Female" data-lang-key="female">Female</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="entry-student-input" class="block text-sm font-medium mb-1" data-lang-key="student">Student</label>
+                                <div class="relative" id="student-combobox-container">
+                                    <input type="text" id="entry-student-input" class="w-full p-2 pr-10 border rounded-md bg-gray-600 border-gray-500" data-lang-key-placeholder="searchStudentPlaceholderHome" placeholder="Type to search for student...">
+                                    <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                    </div>
+                                    <div id="student-suggestions" class="absolute z-10 w-full mt-1 bg-gray-700 border border-gray-500 rounded-md shadow-lg hidden max-h-60 overflow-y-auto"></div>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label for="entry-receipt" class="block text-sm font-medium mb-1" data-lang-key="receiptNo">Receipt No.</label>
+                                    <input type="number" id="entry-receipt" class="w-full p-2 border rounded-md bg-gray-600 border-gray-500">
+                                </div>
+                                <div>
+                                    <label for="entry-date" class="block text-sm font-medium mb-1" data-lang-key="date">Date</label>
+                                    <input type="date" id="entry-date" class="w-full p-2 border rounded-md bg-gray-600 border-gray-500">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4">
+                             <label class="block text-sm font-medium mb-1" data-lang-key="feeItem">Fee Item</label>
+                             <div id="fee-item-selection-container" class="grid grid-cols-3 gap-2 mt-2"></div>
+                        </div>
+                         <div class="mt-4">
+                            <label for="entry-description" class="block text-sm font-medium mb-1" data-lang-key="description">Description</label>
+                            <textarea id="entry-description" rows="2" class="w-full p-2 border rounded-md bg-gray-600 border-gray-500" data-lang-key-placeholder="descriptionPlaceholder" placeholder="Optional notes..."></textarea>
+                        </div>
+                         <div class="mt-6 flex justify-between items-center">
+                            <div>
+                                <label for="total-amount" class="block text-sm font-medium" data-lang-key="totalAmount">Total Amount (₹)</label>
+                                <input type="number" id="total-amount" class="p-2 w-32 rounded-md bg-gray-600 border-gray-500">
+                            </div>
+                            <div id="action-buttons-container" class="flex gap-2">
+                                <button id="cancel-edit-btn" class="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-gray-600 transition hidden">
+                                    <span data-lang-key="cancel">Cancel</span>
+                                </button>
+                                <button id="update-fee-btn" class="bg-yellow-500 text-black font-bold py-2 px-6 rounded-lg shadow-md hover:bg-yellow-600 transition hidden">
+                                    <span data-lang-key="update">Update</span>
+                                </button>
+                                <button id="save-fee-btn" class="btn-primary font-bold py-2 px-6 rounded-lg shadow-md hover:bg-blue-500 transition">
+                                    <span data-lang-key="save">Save</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="fee-page" class="page hidden">
+                    <div class="card p-4 mb-6 rounded-lg shadow">
+                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="filter-class" class="block text-sm font-medium mb-1" data-lang-key="class">Class</label>
+                                <select id="filter-class" class="w-full p-2 border rounded-md bg-gray-600 border-gray-500">
+                                    <option value="all" data-lang-key="allClasses">All Classes</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="filter-gender" class="block text-sm font-medium mb-1" data-lang-key="gender">Gender</label>
+                                <select id="filter-gender" class="w-full p-2 border rounded-md bg-gray-600 border-gray-500">
+                                    <option value="all" data-lang-key="allGenders">All Genders</option>
+                                    <option value="Male" data-lang-key="male">Male</option>
+                                    <option value="Female" data-lang-key="female">Female</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card p-4 rounded-lg shadow">
+                        <div class="flex justify-between items-center mb-4">
+                             <h2 id="fee-status-title-header" class="text-lg font-semibold" data-lang-key="feeStatus">Fee Status</h2>
+                             <div class="flex items-center gap-2">
+                                 <button id="fee-download-pdf-btn" class="p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" title="Download PDF">
+                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                    </svg>
+                                 </button>
+                             </div>
+                        </div>
+                        <div id="fee-table-container" class="overflow-x-auto"></div>
+                    </div>
+                </section>
+
+                <section id="history-page" class="page hidden">
+                    <div class="card p-4 rounded-lg shadow">
+                         <div class="flex justify-between items-center mb-4">
+                             <h2 class="text-lg font-semibold" data-lang-key="paymentHistory">Payment History</h2>
+                        </div>
+                        <div id="history-content-container" class="overflow-x-auto"></div>
+                    </div>
+                </section>
+
+                <section id="monthly-collected-page" class="page hidden">
+                     <div class="card p-4 rounded-lg shadow">
+                         <h2 class="text-lg font-semibold mb-4" data-lang-key="monthlyCollected">Collected Per Month</h2>
+                         <div class="relative mb-4">
+                            <input type="text" id="monthly-collected-search-input" data-lang-key-placeholder="searchHistoryPlaceholder" placeholder="Search by name, class, or receipt..." class="w-full p-2 pl-10 border rounded-md bg-gray-600 border-gray-500">
+                             <svg class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        </div>
+                         <div id="monthly-collected-container" class="space-y-4"></div>
+                     </div>
+                </section>
+
+                <section id="add-students-page" class="page hidden">
+                     <div class="card p-4 mb-6 rounded-lg shadow">
+                        <h2 class="text-lg font-semibold mb-4" data-lang-key="addStudents">Add Students</h2>
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label for="add-student-class" class="block text-sm font-medium mb-1" data-lang-key="class">Class</label>
+                                    <input type="text" id="add-student-class" data-lang-key-placeholder="enterClass" placeholder="Enter Class" class="w-full p-2 border rounded-md bg-gray-600 border-gray-500">
+                                </div>
+                                <div>
+                                    <label for="add-student-gender" class="block text-sm font-medium mb-1" data-lang-key="gender">Gender</label>
+                                    <select id="add-student-gender" class="w-full p-2 border rounded-md bg-gray-600 border-gray-500">
+                                        <option value="Male" data-lang-key="male">Male</option>
+                                        <option value="Female" data-lang-key="female">Female</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="add-multiple-names" class="block text-sm font-medium mb-1" data-lang-key="studentNames">Student Names</label>
+                                <textarea id="add-multiple-names" rows="10" class="w-full p-2 border rounded-md bg-gray-600 border-gray-500" data-lang-key-placeholder="enterNamesPlaceholder" placeholder="Enter one full name per line..."></textarea>
+                            </div>
+                        </div>
+                         <div class="mt-4 flex justify-end">
+                            <button id="add-multiple-students-btn" class="btn-primary font-bold py-2 px-3 text-sm rounded-lg shadow-md hover:bg-blue-500 transition flex items-center justify-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" />
+                                </svg>
+                                <span data-lang-key="addStudentsBtn">Add Students</span>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+                
+                <section id="settings-page" class="page hidden">
+                     <div class="card rounded-lg shadow mb-4">
+                        <div id="settings-nav" class="flex flex-wrap justify-around p-1">
+                            <button class="settings-tab-btn active flex-grow p-2 text-xs sm:text-sm font-medium rounded-md" data-target="general-settings-content">
+                                <span data-lang-key="generalSettings">General</span>
+                            </button>
+                            <button class="settings-tab-btn flex-grow p-2 text-xs sm:text-sm font-medium rounded-md" data-target="manage-fee-items-content">
+                                <span data-lang-key="manageFeeItemsTab">Fee Items</span>
+                            </button>
+                            <button class="settings-tab-btn flex-grow p-2 text-xs sm:text-sm font-medium rounded-md" data-target="manage-students-content">
+                                <span data-lang-key="manageStudents">Students</span>
+                            </button>
+                            <button class="settings-tab-btn flex-grow p-2 text-xs sm:text-sm font-medium rounded-md" data-target="manage-groups-content">
+                                <span data-lang-key="manageStudentGroups">Groups</span>
+                            </button>
+                            <button class="settings-tab-btn flex-grow p-2 text-xs sm:text-sm font-medium rounded-md" data-target="manage-classes-content">
+                                <span data-lang-key="manageClasses">Classes</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="general-settings-content" class="settings-tab-content">
+                        <div class="card p-4 rounded-lg shadow">
+                            <h2 class="text-lg font-semibold mb-4" data-lang-key="generalSettings">General Settings</h2>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label for="app-name-input" class="block text-sm font-medium mb-1" data-lang-key="appName">App Name</label>
+                                    <input type="text" id="app-name-input" class="w-full p-2 border rounded-md bg-gray-600 border-gray-500">
+                                </div>
+                                 <div>
+                                    <label for="app-subtitle-input" class="block text-sm font-medium mb-1" data-lang-key="appSubtitle">App Subtitle</label>
+                                    <input type="text" id="app-subtitle-input" class="w-full p-2 border rounded-md bg-gray-600 border-gray-500">
+                                </div>
+                                <div>
+                                    <label for="default-fee-input" class="block text-sm font-medium mb-1" data-lang-key="defaultMonthlyFee">Default Monthly Fee (₹)</label>
+                                    <input type="number" id="default-fee-input" class="w-full p-2 border rounded-md bg-gray-600 border-gray-500">
+                                </div>
+                                 <div>
+                                    <label for="fee-status-title-input" class="block text-sm font-medium mb-1" data-lang-key="feeStatusTitleLabel">Fee Status Title</label>
+                                    <input type="text" id="fee-status-title-input" class="w-full p-2 border rounded-md bg-gray-600 border-gray-500">
+                                </div>
+                            </div>
+                            <div class="mt-6 text-right">
+                                <button id="save-general-settings-btn" class="btn-primary font-bold py-2 px-4 rounded-lg shadow-md hover:bg-blue-500 transition flex items-center gap-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                      <path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                                    </svg>
+                                    <span data-lang-key="saveGeneralSettings">Save General Settings</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="manage-fee-items-content" class="settings-tab-content hidden">
+                         <div class="card p-4 rounded-lg shadow">
+                            <h2 class="text-lg font-semibold mb-4" data-lang-key="manageFeeItems">Manage Fee Items</h2>
+                            <div id="fee-items-management-container" class="space-y-2 mb-4"></div>
+                             <div class="flex items-center gap-2 mt-4 border-t border-gray-600 pt-4">
+                                <input type="text" id="new-custom-fee-input" class="w-full p-2 border rounded-md bg-gray-600 border-gray-500" data-lang-key-placeholder="newFeeItemName" placeholder="New Fee Item Name">
+                                <button id="add-custom-fee-btn" class="btn-primary font-bold py-2 px-4 rounded-lg shadow-md hover:bg-blue-500 transition">
+                                    <span data-lang-key="add">Add</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="manage-students-content" class="settings-tab-content hidden">
+                        <div class="card p-4 rounded-lg shadow">
+                            <h2 class="text-lg font-semibold mb-4" data-lang-key="manageStudents">Manage Students</h2>
+                            <div class="relative mb-4">
+                                <input type="text" id="search-student-input" data-lang-key-placeholder="searchStudentPlaceholder" placeholder="Search for a student to edit or delete" class="w-full p-2 pl-10 border rounded-md bg-gray-600 border-gray-500">
+                                 <svg class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                            </div>
+                            <div id="student-list-container" class="overflow-x-auto"></div>
+                        </div>
+                    </div>
+                    
+                    <div id="manage-groups-content" class="settings-tab-content hidden space-y-4">
+                        <div class="card p-4 rounded-lg shadow">
+                            <h2 class="text-lg font-semibold mb-4" data-lang-key="manageStudentGroups">Manage Student Groups</h2>
+                            <p class="text-sm text-gray-400 mb-4" data-lang-key="studentGroupsDesc">Group students together. When one student in a group pays, the fee is automatically recorded for all members of the group.</p>
+                            
+                            <div class="space-y-4">
+                                <div>
+                                    <label for="num-of-students-group" class="block text-sm font-medium mb-1" data-lang-key="numStudentsToGroup">Number of Students to Group</label>
+                                    <input type="number" id="num-of-students-group" min="2" class="w-full md:w-1/4 p-2 border rounded-md bg-gray-600 border-gray-500" placeholder="e.g., 2">
+                                </div>
+                                
+                                <div id="group-creation-container" class="space-y-4">
+                                    </div>
+                                
+                                <div id="create-group-btn-container" class="text-right hidden">
+                                    <button id="create-group-btn" class="btn-primary font-bold py-2 px-6 rounded-lg shadow-md hover:bg-blue-500 transition">
+                                        <span data-lang-key="createGroup">Create Group</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card p-4 rounded-lg shadow">
+                            <div class="flex justify-between items-center mb-4">
+                                <h2 class="text-lg font-semibold" data-lang-key="existingGroups">Existing Groups</h2>
+                                <div id="save-group-fees-container" class="hidden">
+                                     <button id="save-group-fees-btn" class="btn-primary font-bold py-2 px-4 text-sm rounded-lg shadow-md hover:bg-blue-500 transition flex items-center gap-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                          <path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                                        </svg>
+                                        <span data-lang-key="saveFees">Save Fees</span>
+                                     </button>
+                                </div>
+                            </div>
+                            <div id="student-groups-list" class="space-y-3">
+                                </div>
+                        </div>
+                    </div>
+
+                    <div id="manage-classes-content" class="settings-tab-content hidden space-y-6">
+                        <div class="card p-4 rounded-lg shadow">
+                            <h2 class="text-lg font-semibold mb-4" data-lang-key="manageClasses">Manage Classes</h2>
+                            <div id="class-list-container" class="space-y-2"></div>
+                        </div>
+                    
+                        <div class="card p-4 rounded-lg shadow">
+                            <h2 class="text-lg font-semibold mb-4" data-lang-key="bulkClassActions">Bulk Class Actions</h2>
+                    
+                            <div class="border-b border-gray-600 pb-4 mb-4">
+                                <h3 class="font-semibold mb-2" data-lang-key="promoteAllTitle">Promote All Students</h3>
+                                <p class="text-sm text-gray-400 mb-4" data-lang-key="promoteAllDesc">Automatically promotes all classes with a number in their name to the next number (e.g., Class '9 A' becomes '10 A'). This affects all students. This action is irreversible.</p>
+                                <button id="promote-all-btn" class="btn-primary font-bold py-2 px-4 rounded-lg shadow-md hover:bg-blue-500 transition">
+                                    <span data-lang-key="promoteAllBtn">Promote All to Next Year</span>
+                                </button>
+                            </div>
+                    
+                            <div>
+                                <h3 class="font-semibold mb-2" data-lang-key="moveStudentsToDivision">Move Students to New Division</h3>
+                                <p class="text-sm text-gray-400 mb-4" data-lang-key="moveStudentsDesc">Select a class, choose specific students, and move them to a new division.</p>
+                                
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                                    <div>
+                                        <label for="move-from-class" class="block text-sm font-medium mb-1" data-lang-key="fromClass">From Class</label>
+                                        <select id="move-from-class" class="w-full p-2 border rounded-md bg-gray-600 border-gray-500">
+                                            <option value="">Select a Class</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            
+                                <div id="move-student-list-container" class="mt-4 space-y-2 max-h-72 overflow-y-auto border border-gray-600 rounded-md p-2 hidden">
+                                    <!-- Student list will be populated here -->
+                                </div>
+                                
+                                <div class="text-right mt-4">
+                                     <button id="move-selected-students-btn" class="btn-primary font-bold py-2 px-4 rounded-lg shadow-md hover:bg-blue-500 transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                                        <span data-lang-key="moveSelectedStudents">Move Selected Students</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <div id="confirm-popup" class="fixed inset-0 popup-overlay items-center justify-center hidden z-50">
+        <div class="card rounded-lg shadow-xl p-6 w-full max-w-md mx-auto">
+            <h3 class="text-lg font-bold mb-4" id="confirm-title" data-lang-key="confirm">Confirm</h3>
+            <div id="confirm-message" class="mb-6 text-left max-h-80 overflow-y-auto"></div>
+            <div class="flex justify-end gap-4">
+                <button id="confirm-cancel" class="px-4 py-2 rounded-md bg-gray-500 hover:bg-gray-600 transition flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    <span data-lang-key="cancel">Cancel</span>
+                </button>
+                <button id="confirm-ok" class="btn-primary px-4 py-2 rounded-md shadow hover:bg-blue-500 transition flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    OK
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="edit-student-popup" class="fixed inset-0 popup-overlay items-center justify-center hidden z-50">
+        <div class="card rounded-lg shadow-xl p-6 w-full max-w-md mx-auto">
+            <h3 class="text-lg font-bold mb-4" data-lang-key="editStudent">Edit Student</h3>
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="edit-student-class" class="block text-sm font-medium mb-1" data-lang-key="class">Class</label>
+                        <input type="text" id="edit-student-class" class="w-full p-2 border rounded-md bg-gray-600 border-gray-500">
+                    </div>
+                    <div>
+                        <label for="edit-student-gender" class="block text-sm font-medium mb-1" data-lang-key="gender">Gender</label>
+                        <select id="edit-student-gender" class="w-full p-2 border rounded-md bg-gray-600 border-gray-500">
+                            <option value="Male" data-lang-key="male">Male</option>
+                            <option value="Female" data-lang-key="female">Female</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label for="edit-student-name" class="block text-sm font-medium mb-1" data-lang-key="studentName">Student Name</label>
+                    <input type="text" id="edit-student-name" class="w-full p-2 border rounded-md bg-gray-600 border-gray-500">
+                </div>
+                <div>
+                    <label for="edit-student-sno" class="block text-sm font-medium mb-1" data-lang-key="sNo">S.No.</label>
+                    <input type="number" id="edit-student-sno" class="w-full p-2 border rounded-md bg-gray-600 border-gray-500">
+                </div>
+            </div>
+            <div class="flex justify-end gap-4 mt-6">
+                <button id="edit-student-cancel" class="px-4 py-2 rounded-md bg-gray-500 hover:bg-gray-600 transition"><span data-lang-key="cancel">Cancel</span></button>
+                <button id="edit-student-update" class="btn-primary px-4 py-2 rounded-md shadow hover:bg-blue-500 transition" data-lang-key="update">Update</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="edit-class-popup" class="fixed inset-0 popup-overlay items-center justify-center hidden z-50">
+        <div class="card rounded-lg shadow-xl p-6 w-full max-w-sm mx-auto">
+            <h3 class="text-lg font-bold mb-4" data-lang-key="editClass">Edit Class</h3>
+            <div class="space-y-2">
+                <div>
+                    <label for="edit-class-name" class="block text-sm font-medium mb-1" data-lang-key="className">Class Name</label>
+                    <input type="text" id="edit-class-name" class="w-full p-2 border rounded-md bg-gray-600 border-gray-500">
+                </div>
+            </div>
+            <div class="flex justify-end gap-4 mt-6">
+                <button id="edit-class-cancel" class="px-4 py-2 rounded-md bg-gray-500 hover:bg-gray-600 transition"><span data-lang-key="cancel">Cancel</span></button>
+                <button id="edit-class-update" class="btn-primary px-4 py-2 rounded-md shadow hover:bg-blue-500 transition" data-lang-key="update">Update</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, collection, addDoc, updateDoc, deleteDoc, query, where, writeBatch, getDocs, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- GLOBAL STATE ---
+        let students = [];
+        let payments = [];
+        let classes = [];
+        let studentGroups = [];
+        let feeItems = [];
+        let defaultFee = 200;
+        let appName = 'DSD 003- Fee Tracking App';
+        let appSubtitle = '©2025 by muhammed sanjide.p';
+        let feeStatusTitle = '';
+        let nextReceiptNo = 1;
+        let currentLang = 'en';
+        let isEditMode = false;
+        let editingPaymentGroup = {}; 
+        let editingStudentId = null;
+        let selectedStudentId = null; 
+        let editingClassName = null;
+
+        let db, auth, userId, appId;
+        let studentsUnsubscribe, paymentsUnsubscribe, settingsUnsubscribe, studentGroupsUnsubscribe;
+
+        // --- UI ELEMENTS ---
+        const appContainer = document.getElementById('app');
+        const langSwitcher = document.getElementById('lang-switcher');
+        const langIndicator = document.getElementById('lang-indicator');
+        const navLinks = document.querySelectorAll('.nav-link');
+        const pages = document.querySelectorAll('.page');
+        const appNameHeader = document.getElementById('app-name-header');
+        const appSubtitleHeader = document.getElementById('app-subtitle-header');
+        const filterClass = document.getElementById('filter-class');
+        const filterGender = document.getElementById('filter-gender');
+        const entryClass = document.getElementById('entry-class');
+        const entryGender = document.getElementById('entry-gender');
+        const entryStudentInput = document.getElementById('entry-student-input');
+        const studentSuggestions = document.getElementById('student-suggestions');
+        const studentComboboxContainer = document.getElementById('student-combobox-container');
+        const entryReceipt = document.getElementById('entry-receipt');
+        const entryDate = document.getElementById('entry-date');
+        const entryDescription = document.getElementById('entry-description');
+        const feeItemSelectionContainer = document.getElementById('fee-item-selection-container');
+        const saveFeeBtn = document.getElementById('save-fee-btn');
+        const updateFeeBtn = document.getElementById('update-fee-btn');
+        const cancelEditBtn = document.getElementById('cancel-edit-btn');
+        const totalAmountInput = document.getElementById('total-amount');
+        const feeTableContainer = document.getElementById('fee-table-container');
+        const historyContentContainer = document.getElementById('history-content-container');
+        const monthlyCollectedSearchInput = document.getElementById('monthly-collected-search-input');
+        const monthlyCollectedContainer = document.getElementById('monthly-collected-container');
+        const addStudentClass = document.getElementById('add-student-class');
+        const addStudentGender = document.getElementById('add-student-gender');
+        const studentListContainer = document.getElementById('student-list-container');
+        const classListContainer = document.getElementById('class-list-container');
+        const confirmPopup = document.getElementById('confirm-popup');
+        const confirmTitle = document.getElementById('confirm-title');
+        const confirmMessage = document.getElementById('confirm-message');
+        const confirmOk = document.getElementById('confirm-ok');
+        const confirmCancel = document.getElementById('confirm-cancel');
+        const editStudentPopup = document.getElementById('edit-student-popup');
+        const editStudentClass = document.getElementById('edit-student-class');
+        const editStudentGender = document.getElementById('edit-student-gender');
+        const editStudentName = document.getElementById('edit-student-name');
+        const editStudentSno = document.getElementById('edit-student-sno');
+        const editStudentCancelBtn = document.getElementById('edit-student-cancel');
+        const editStudentUpdateBtn = document.getElementById('edit-student-update');
+        const editClassPopup = document.getElementById('edit-class-popup');
+        const editClassNameInput = document.getElementById('edit-class-name');
+        const editClassCancelBtn = document.getElementById('edit-class-cancel');
+        const editClassUpdateBtn = document.getElementById('edit-class-update');
+        const searchStudentInput = document.getElementById('search-student-input');
+        const saveGeneralSettingsBtn = document.getElementById('save-general-settings-btn');
+        const defaultFeeInput = document.getElementById('default-fee-input');
+        const appNameInput = document.getElementById('app-name-input');
+        const appSubtitleInput = document.getElementById('app-subtitle-input');
+        const feeStatusTitleInput = document.getElementById('fee-status-title-input');
+        const feeStatusTitleHeader = document.getElementById('fee-status-title-header');
+        const feeDownloadPdfBtn = document.getElementById('fee-download-pdf-btn');
+        const numOfStudentsGroupInput = document.getElementById('num-of-students-group');
+        const groupCreationContainer = document.getElementById('group-creation-container');
+        const createGroupBtnContainer = document.getElementById('create-group-btn-container');
+        const createGroupBtn = document.getElementById('create-group-btn');
+        const studentGroupsList = document.getElementById('student-groups-list');
+        const addMultipleNames = document.getElementById('add-multiple-names');
+        const addMultipleStudentsBtn = document.getElementById('add-multiple-students-btn');
+        const feeEntryTitle = document.getElementById('fee-entry-title');
+        const settingsNav = document.getElementById('settings-nav');
+        const settingsTabContents = document.querySelectorAll('.settings-tab-content');
+        const feeItemsManagementContainer = document.getElementById('fee-items-management-container');
+        const newCustomFeeInput = document.getElementById('new-custom-fee-input');
+        const addCustomFeeBtn = document.getElementById('add-custom-fee-btn');
+        const promoteAllBtn = document.getElementById('promote-all-btn');
+        const moveFromClassSelect = document.getElementById('move-from-class');
+        const moveStudentListContainer = document.getElementById('move-student-list-container');
+        const moveSelectedStudentsBtn = document.getElementById('move-selected-students-btn');
+        
+        const getStudentById = (id) => students.find(s => s.id === id);
+
+        // --- I18N (TRANSLATION) ---
+        const translations = {
+            en: {
+                home: 'Home', history: 'Recent', fee: 'FEE', manage: 'Manage', settings: 'Settings', feeEntry: 'Fee Entry', class: 'Class', gender: 'Gender', male: 'Male', female: 'Female', student: 'Student', receiptNo: 'Receipt No.', date: 'Date', month: 'Months', totalAmount: 'Total Amount (₹)', save: 'Save', update: 'Update', feeStatus: 'Fee Status', searchPlaceholderFee: 'Search by name, S.No, receipt no, or range (e.g., 2,6)', total: 'Total', allClasses: 'All Classes', allGenders: 'All Genders', downloadPdf: 'Download PDF', paymentHistory: 'Payment History', addNewStudent: 'Add New Student', sNo: 'R.No.', studentName: 'Student Name', enterClass: 'Enter Class', enterSerialNo: 'Enter Serial No.', enterFullName: 'Enter full name', add: 'Add', manageStudents: 'Students', searchStudentPlaceholder: 'Search for a student to edit or delete', edit: 'Edit', delete: 'Delete', updateBtn: 'Update', cancel: 'Cancel', generalSettings: 'General', appName: 'App Name', appSubtitle: 'App Subtitle', defaultMonthlyFee: 'Default Monthly Fee (₹)', saveGeneralSettings: 'Save General Settings', manageClasses: 'Classes', confirm: 'Confirm', noData: 'No data to display.', noStudentsFound: 'No students found.', noClassesFound: 'No classes found. Add a student to create a new class.', monthlyCollected: 'Collected Per Month', description: 'Description', descriptionPlaceholder: 'Optional notes...', editPayment: 'Edit Payment', deletePayment: 'Delete Payment', saveChanges: 'Save Changes', monthCount: 'Item(s)', feeStatusTitleLabel: 'Fee Status Title', manageStudentGroups: 'Groups', studentGroupsDesc: 'Group students together. When one student in a group pays, the fee is automatically recorded for all members of the group.', numStudentsToGroup: 'Number of Students to Group', createGroup: 'Create Group', existingGroups: 'Existing Groups', noGroupsFound: 'No groups found.', addStudents: 'Add Students', studentNames: 'Student Names', enterNamesPlaceholder: 'Enter one full name per line...', addStudentsBtn: 'Add Students', addStudentsNav: 'Add', groupPaymentConfirm: '(This is a group payment and will be applied to all members)', updateGroupConfirmText: 'This will update the payment for all students in the group:', actions: 'Actions', searchHistoryPlaceholder: 'Search by name, class, or receipt...', searchStudentPlaceholderHome: 'Type to search for student...', monthlyTotal: 'Total for Month', amount: 'Amount', groupFee: 'Fee (₹)', saveFees: 'Save Fees',
+                editClass: 'Edit Class', className: 'Class Name', feeItem: 'Fee Item',
+                saving: 'Saving...', updating: 'Updating...', deleting: 'Deleting...', adding: 'Adding...',
+                newFeeItemName: "New Fee Item Name",
+                manageFeeItems: "Manage Fee Items",
+                manageFeeItemsTab: 'Fee Items',
+                deleteFeeItemConfirmTitle: 'Delete Fee Item',
+                deleteFeeItemConfirmMessage: "Are you sure you want to delete the fee item '{{itemName}}'? This cannot be undone.",
+                feeItemDeleted: 'Fee item deleted successfully.',
+                dragToReorder: 'Drag to reorder',
+                bulkClassActions: 'Bulk Class Actions', promoteAllTitle: 'Promote All Students', promoteAllDesc: "Automatically promotes all classes with a number in their name to the next number (e.g., Class '9 A' becomes '10 A'). This affects all students. This action is irreversible.", promoteAllBtn: 'Promote All to Next Year', 
+                moveStudentsToDivision: 'Move Students to New Division', moveStudentsDesc: 'Select a class, choose specific students, and move them to a new division.', moveSelectedStudents: 'Move Selected Students', fromClass: 'From Class', selectAll: 'Select All', studentsToMove: 'Students to be Moved', newDivisionName: 'New Division Name', enterNewDivisionName: 'Please enter the new division name.',
+                shareOnWhatsApp: 'Share on WhatsApp', studentPaymentReport: 'Student Payment Report', back: 'Back', searchResults: 'Search Results', clickStudentToView: 'Click on a student to view their detailed report.', paid: 'PAID',
+                moveStudentsSnoResetWarning: 'Note: The roll numbers of the selected students will be reset starting from 1 in the new division.',
+                otherFees: 'Other Fees',
+            },
+            ml: {
+                home: 'ഹോം', history: 'റിസെൻ്റ്', fee: 'ഫീസ്', manage: 'മാനേജ്', settings: 'സെറ്റിംഗ്സ്', feeEntry: 'ഫീസ് എൻട്രി', class: 'ക്ലാസ്', gender: 'ലിംഗഭേദം', male: 'പുരുഷൻ', female: 'സ്ത്രീ', student: 'വിദ്യാർത്ഥി', receiptNo: 'രസീത് നമ്പർ', date: 'തീയതി', month: 'മാസങ്ങൾ', totalAmount: 'ആകെ തുക (₹)', save: 'സേവ് ചെയ്യുക', update: 'അപ്ഡേറ്റ്', feeStatus: 'ഫീസ് സ്റ്റാറ്റസ്', searchPlaceholderFee: 'പേര്, S.No, രസീത് നമ്പർ, അല്ലെങ്കിൽ ശ്രേണി (ഉദാ: 2,6) ഉപയോഗിച്ച് തിരയുക', total: 'ആകെ', allClasses: 'എല്ലാ ക്ലാസുകളും', allGenders: 'എല്ലാ ലിംഗഭേദങ്ങളും', downloadPdf: 'PDF ഡൗൺലോഡ് ചെയ്യുക', paymentHistory: 'പേയ്‌മെന്റ് ഹിസ്റ്ററി', addNewStudent: 'പുതിയ വിദ്യാർത്ഥിയെ ചേർക്കുക', sNo: 'ക്രമ. നം.', studentName: 'വിദ്യാർത്ഥിയുടെ പേര്', enterClass: 'ക്ലാസ് നൽകുക', enterSerialNo: 'സീരിയൽ നമ്പർ നൽകുക', enterFullName: 'പൂർണ്ണമായ പേര് നൽകുക', add: 'ചേർക്കുക', manageStudents: 'വിദ്യാർത്ഥികൾ', searchStudentPlaceholder: 'എഡിറ്റുചെയ്യാനോ ഇല്ലാതാക്കാനോ ഒരു വിദ്യാർത്ഥിയെ തിരയുക', edit: 'എഡിറ്റ്', delete: 'ഡിലീറ്റ്', updateBtn: 'അപ്ഡേറ്റ്', cancel: 'റദ്ദാക്കുക', generalSettings: 'പൊതുവായത്', appName: 'ആപ്പ് നെയിം', appSubtitle: 'ആപ്പ് സബ്ടൈറ്റിൽ', defaultMonthlyFee: 'പ്രതിമാസ ഫീസ് (₹)', saveGeneralSettings: 'പൊതുവായ സെറ്റിംഗ്സ് സേവ് ചെയ്യുക', manageClasses: 'ക്ലാസുകൾ', confirm: 'സ്ഥിരീകരിക്കുക', noData: 'പ്രദർശിപ്പിക്കാൻ ഡാറ്റയില്ല.', noStudentsFound: 'വിദ്യാർത്ഥികളെ കണ്ടെത്തിയില്ല.', noClassesFound: 'ക്ലാസുകൾ കണ്ടെത്തിയില്ല. ഒരു പുതിയ ക്ലാസ് ഉണ്ടാക്കാൻ വിദ്യാർത്ഥിയെ ചേർക്കുക.', monthlyCollected: 'പ്രതിമാസ കളക്ഷൻ', description: 'വിവരണം', descriptionPlaceholder: 'കുറിപ്പുകൾ...', editPayment: 'പേയ്‌മെന്റ് എഡിറ്റ് ചെയ്യുക', deletePayment: 'പേയ്‌മെന്റ് ഇല്ലാതാക്കുക', saveChanges: 'മാറ്റങ്ങൾ സേവ് ചെയ്യുക', monthCount: 'ഇനം(ങ്ങൾ)', feeStatusTitleLabel: 'ഫീസ് സ്റ്റാറ്റസ് തലക്കെട്ട്', manageStudentGroups: 'ഗ്രൂപ്പുകൾ', studentGroupsDesc: 'വിദ്യാർത്ഥികളെ ഒരുമിച്ച് ഗ്രൂപ്പ് ചെയ്യുക. ഗ്രൂപ്പിലെ ഒരു വിദ്യാർത്ഥി ഫീസ് അടച്ചാൽ, ഗ്രൂപ്പിലെ എല്ലാ അംഗങ്ങൾക്കും ഫീസ് സ്വയമേവ രേഖപ്പെടുത്തും.', numStudentsToGroup: 'ഗ്രൂപ്പിൽ ചേർക്കേണ്ട വിദ്യാർത്ഥികളുടെ എണ്ണം', createGroup: 'ഗ്രൂപ്പ് ഉണ്ടാക്കുക', existingGroups: 'നിലവിലുള്ള ഗ്രൂപ്പുകൾ', noGroupsFound: 'ഗ്രൂപ്പുകൾ ഒന്നും കണ്ടെത്തിയില്ല.', addStudents: 'വിദ്യാർത്ഥികളെ ചേർക്കുക', studentNames: 'വിദ്യാർത്ഥികളുടെ പേരുകൾ', enterNamesPlaceholder: 'ഓരോ വരിയിലും ഓരോ പൂർണ്ണമായ പേര് നൽകുക...', addStudentsBtn: 'വിദ്യാർത്ഥികളെ ചേർക്കുക', addStudentsNav: 'ചേർക്കുക', groupPaymentConfirm: '(ഇതൊരു ഗ്രൂപ്പ് പേയ്‌മെന്റാണ്, എല്ലാ അംഗങ്ങൾക്കും ഇത് ബാധകമാകും)', updateGroupConfirmText: 'ഇത് ഗ്രൂപ്പിലെ എല്ലാ വിദ്യാർത്ഥികൾക്കുമുള്ള പേയ്‌മെന്റ് അപ്‌ഡേറ്റ് ചെയ്യും:', actions: 'പ്രവൃത്തികൾ', searchHistoryPlaceholder: 'പേര്, ക്ലാസ്, അല്ലെങ്കിൽ രസീത് നമ്പർ ഉപയോഗിച്ച് തിരയുക...', searchStudentPlaceholderHome: 'വിദ്യാർത്ഥിയെ കണ്ടെത്താൻ ടൈപ്പ് ചെയ്യുക...', monthlyTotal: 'മാസത്തെ ആകെ', amount: 'തുക', groupFee: 'ഫീസ് (₹)', saveFees: 'ഫീസ് സേവ് ചെയ്യുക',
+                editClass: 'ക്ലാസ് എഡിറ്റ് ചെയ്യുക', className: 'ക്ലാസ്സിന്റെ പേര്', feeItem: 'ഫീസ് ഇനം',
+                saving: 'സേവ് ചെയ്യുന്നു...', updating: 'അപ്ഡേറ്റ് ചെയ്യുന്നു...', deleting: 'ഇല്ലാതാക്കുന്നു...', adding: 'ചേർക്കുന്നു...',
+                newFeeItemName: "പുതിയ ഫീസ് ഐറ്റത്തിന്റെ പേര്",
+                manageFeeItems: "ഫീസ് ഇനങ്ങൾ ക്രമീകരിക്കുക",
+                manageFeeItemsTab: 'ഫീസ് ഇനങ്ങൾ',
+                deleteFeeItemConfirmTitle: 'ഫീസ് ഇനം ഇല്ലാതാക്കുക',
+                deleteFeeItemConfirmMessage: "'{{itemName}}' എന്ന ഫീസ് ഇനം ഇല്ലാതാക്കാൻ നിങ്ങൾ ആഗ്രഹിക്കുന്നുവെന്ന് ഉറപ്പാണോ? ഈ പ്രവർത്തനം പഴയപടിയാക്കാൻ കഴിയില്ല.",
+                feeItemDeleted: 'ഫീസ് ഇനം വിജയകരമായി ഇല്ലാതാക്കി.',
+                dragToReorder: 'പുനഃക്രമീകരിക്കാൻ വലിച്ചിടുക',
+                bulkClassActions: 'ബൾക്ക് ക്ലാസ് പ്രവർത്തനങ്ങൾ', promoteAllTitle: 'എല്ലാ വിദ്യാർത്ഥികളെയും പ്രൊമോട്ട് ചെയ്യുക', promoteAllDesc: "ക്ലാസ്സിന്റെ പേരിൽ സംഖ്യയുള്ള എല്ലാ ക്ലാസുകളെയും അടുത്ത നമ്പറിലേക്ക് യാന്ത്രികമായി പ്രൊമോട്ട് ചെയ്യും (ഉദാഹരണത്തിന്, '9 A' എന്നത് '10 A' ആകും). ഇത് എല്ലാ വിദ്യാർത്ഥികളെയും ബാധിക്കും. ഈ പ്രവർത്തനം പിൻവലിക്കാൻ സാധിക്കില്ല.", promoteAllBtn: 'എല്ലാവരെയും അടുത്ത വർഷത്തേക്ക് പ്രൊമോട്ട് ചെയ്യുക', 
+                moveStudentsToDivision: 'വിദ്യാർത്ഥികളെ പുതിയ ഡിവിഷനിലേക്ക് മാറ്റുക', moveStudentsDesc: 'ഒരു ക്ലാസ് തിരഞ്ഞെടുത്ത്, ആവശ്യമുള്ള വിദ്യാർത്ഥികളെ തിരഞ്ഞെടുത്ത് ഒരു പുതിയ ഡിവിഷനിലേക്ക് മാറ്റുക.', moveSelectedStudents: 'തിരഞ്ഞെടുത്ത വിദ്യാർത്ഥികളെ മാറ്റുക', fromClass: 'ഏത് ക്ലാസിൽ നിന്ന്', selectAll: 'എല്ലാം തിരഞ്ഞെടുക്കുക', studentsToMove: 'മാറ്റേണ്ട വിദ്യാർത്ഥികൾ', newDivisionName: 'പുതിയ ഡിവിഷന്റെ പേര്', enterNewDivisionName: 'പുതിയ ഡിവിഷന്റെ പേര് നൽകുക.',
+                shareOnWhatsApp: 'വാട്സ്ആപ്പിൽ ഷെയർ ചെയ്യുക', studentPaymentReport: 'വിദ്യാർത്ഥിയുടെ പേയ്‌മെന്റ് റിപ്പോർട്ട്', back: 'പുറകോട്ട്', searchResults: 'തിരയൽ ഫലങ്ങൾ', clickStudentToView: 'വിശദാംശങ്ങൾ കാണാൻ വിദ്യാർത്ഥിയുടെ പേരിൽ ക്ലിക്ക് ചെയ്യുക.', paid: 'അടച്ചു',
+                moveStudentsSnoResetWarning: 'ശ്രദ്ധിക്കുക: തിരഞ്ഞെടുക്കപ്പെട്ട വിദ്യാർത്ഥികളുടെ റോൾ നമ്പറുകൾ പുതിയ ഡിവിഷനിൽ 1 മുതൽ പുനഃക്രമീകരിക്കുന്നതാണ്.',
+                otherFees: 'മറ്റുള്ള ഫീസുകൾ',
+            }
+        };
+
+        const setLanguage = (lang) => {
+            currentLang = lang;
+            langIndicator.textContent = lang === 'en' ? 'e' : 'm';
+            document.querySelectorAll('[data-lang-key]').forEach(el => {
+                const key = el.dataset.langKey;
+                if (key === 'feeStatus' && feeStatusTitle) {
+                    el.textContent = feeStatusTitle;
+                } else if (translations[lang][key]) {
+                    el.textContent = translations[lang][key];
+                }
+            });
+            document.querySelectorAll('[data-lang-key-placeholder]').forEach(el => {
+                const key = el.dataset.langKeyPlaceholder;
+                if (translations[lang][key]) {
+                    el.placeholder = translations[lang][key];
+                }
+            });
+            document.querySelectorAll('[data-lang-key-title]').forEach(el => {
+                const key = el.dataset.langKeyTitle;
+                if (translations[lang][key]) {
+                    el.title = translations[lang][key];
+                }
+            });
+            
+            feeStatusTitleInput.value = feeStatusTitleHeader.textContent;
+        };
+
+        langSwitcher.addEventListener('click', () => {
+            const newLang = currentLang === 'en' ? 'ml' : 'en';
+            setLanguage(newLang);
+        });
+
+        // --- NAVIGATION ---
+        const setActiveLink = (targetId) => {
+            navLinks.forEach(l => l.classList.remove('active'));
+            document.querySelectorAll(`.nav-link[href="#${targetId}"]`).forEach(activeLink => {
+                activeLink.classList.add('active');
+            });
+        }
+
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                let targetId = e.currentTarget.getAttribute('href').substring(1);
+                
+                pages.forEach(page => page.classList.add('hidden'));
+                const targetPage = document.getElementById(targetId + '-page');
+                if (targetPage) {
+                    targetPage.classList.remove('hidden');
+                }
+                
+                setActiveLink(targetId);
+                
+                if (targetId === 'history') renderHistoryPage();
+                if (targetId === 'fee') renderFeeTable();
+                if (targetId === 'monthly-collected') renderMonthlyCollectedPage();
+                if (targetId === 'settings') {
+                    document.querySelector('.settings-tab-btn[data-target="general-settings-content"]').click();
+                }
+                if (targetId === 'home') exitEditMode();
+            });
+        });
+        
+        // --- SETTINGS PAGE TABS ---
+        settingsNav.addEventListener('click', (e) => {
+            const targetBtn = e.target.closest('.settings-tab-btn');
+            if (!targetBtn) return;
+
+            const targetContentId = targetBtn.dataset.target;
+
+            settingsNav.querySelectorAll('.settings-tab-btn').forEach(btn => btn.classList.remove('active'));
+            targetBtn.classList.add('active');
+
+            settingsTabContents.forEach(content => {
+                if (content.id === targetContentId) {
+                    content.classList.remove('hidden');
+                } else {
+                    content.classList.add('hidden');
+                }
+            });
+
+            // Refresh content when tab is clicked
+            if (targetContentId === 'manage-fee-items-content') renderFeeItemsManagement();
+            if (targetContentId === 'manage-students-content') renderStudentList();
+            if (targetContentId === 'manage-groups-content') renderStudentGroups();
+            if (targetContentId === 'manage-classes-content') {
+                renderClassList();
+                populatePromotionDivisionDropdowns();
+            }
+        });
+
+        // --- POPULATE DROPDOWNS ---
+        const populateClassDropdowns = () => {
+            const uniqueClasses = [...new Set(students.map(s => s.class))].sort((a,b) => a.localeCompare(b, undefined, {numeric: true}));
+            classes = uniqueClasses;
+            const classOptions = classes.map(c => `<option value="${c}">${c}</option>`).join('');
+            filterClass.innerHTML = `<option value="all" data-lang-key="allClasses">${translations[currentLang].allClasses}</option>` + classOptions;
+            entryClass.innerHTML = classOptions;
+            populatePromotionDivisionDropdowns();
+        };
+
+        const populatePromotionDivisionDropdowns = () => {
+            const classOptions = `<option value="">Select a Class</option>` + classes.map(c => `<option value="${c}">${c}</option>`).join('');
+            moveFromClassSelect.innerHTML = classOptions;
+        }
+        
+        const resetStudentSelection = () => {
+            selectedStudentId = null;
+            entryStudentInput.value = '';
+            studentSuggestions.classList.add('hidden');
+            populateFeeItemSelection();
+        };
+        
+        // --- FEE ENTRY & EDIT ---
+        const updateTotalAmount = () => {
+            const group = studentGroups.find(g => g.memberIds.includes(selectedStudentId));
+            let feeToUse = defaultFee;
+            if (group && group.fee && group.fee > 0) {
+                feeToUse = group.fee;
+            }
+            
+            let calculatedTotal = 0;
+            
+            // Calculate amount from month items
+            const selectedMonthCheckboxes = feeItemSelectionContainer.querySelectorAll('.fee-item-checkbox[data-item-type="month"]:checked:not(:disabled)');
+            selectedMonthCheckboxes.forEach(() => {
+                calculatedTotal += feeToUse;
+            });
+
+            // Calculate amount from custom items
+            const customItemCheckboxes = feeItemSelectionContainer.querySelectorAll('.fee-item-checkbox[data-item-type="custom"]:checked:not(:disabled)');
+            customItemCheckboxes.forEach(cb => {
+                const amountInput = cb.closest('.relative').querySelector('.custom-fee-amount-input');
+                if (amountInput) {
+                    calculatedTotal += parseFloat(amountInput.value) || 0;
+                }
+            });
+            
+            totalAmountInput.value = calculatedTotal;
+        };
+
+        const setupFeeEntryUI = () => {
+            feeEntryTitle.dataset.langKey = 'feeEntry';
+            feeEntryTitle.textContent = translations[currentLang].feeEntry;
+            
+            saveFeeBtn.classList.remove('hidden');
+            cancelEditBtn.classList.add('hidden');
+            updateFeeBtn.classList.add('hidden');
+            
+            entryReceipt.value = nextReceiptNo;
+            entryDescription.value = '';
+
+            populateFeeItemSelection();
+        };
+
+        const startEditingPayment = (studentId, receiptNo) => {
+            const student = getStudentById(studentId);
+            if (!student) return alert('Student not found.');
+
+            pages.forEach(p => p.classList.add('hidden'));
+            document.getElementById('home-page').classList.remove('hidden');
+            setActiveLink('home');
+
+            entryClass.value = student.class;
+            entryGender.value = student.gender;
+            
+            selectedStudentId = student.id;
+            entryStudentInput.value = `${student.sno}. ${student.name}`;
+            studentSuggestions.classList.add('hidden');
+
+            isEditMode = true;
+            appContainer.classList.add('edit-mode-active');
+            feeEntryTitle.dataset.langKey = 'editPayment';
+            feeEntryTitle.textContent = translations[currentLang].editPayment;
+            
+            saveFeeBtn.classList.add('hidden');
+            cancelEditBtn.classList.remove('hidden');
+            updateFeeBtn.classList.remove('hidden');
+            updateFeeBtn.querySelector('span').dataset.langKey = 'update';
+            updateFeeBtn.querySelector('span').textContent = translations[currentLang].update;
+
+            populateFeeItemSelection();
+
+            const studentPayments = payments.filter(p => p.studentId === studentId);
+            const paymentGroup = studentPayments.filter(p => p.receiptNo === receiptNo);
+            
+            if (paymentGroup.length === 0) {
+                alert('Payment not found.');
+                return exitEditMode();
+            }
+            
+            const firstPayment = paymentGroup[0];
+            
+            editingPaymentGroup = {
+                receiptNo: receiptNo,
+                paymentDate: firstPayment.paymentDate,
+                description: firstPayment.description || '',
+                itemKeys: new Set(paymentGroup.map(p => p.itemKey))
+            };
+            
+            entryReceipt.value = editingPaymentGroup.receiptNo;
+            entryDate.value = editingPaymentGroup.paymentDate;
+            entryDescription.value = editingPaymentGroup.description;
+            
+            const totalAmountForPayment = paymentGroup.reduce((sum, p) => sum + p.amount, 0);
+            totalAmountInput.value = totalAmountForPayment;
+
+            document.querySelectorAll('.fee-item-checkbox').forEach(cb => {
+                const itemKey = cb.dataset.itemKey;
+                const label = cb.nextElementSibling;
+                label.classList.remove('month-paid', 'month-editable');
+
+                const isPaidInThisReceipt = editingPaymentGroup.itemKeys.has(itemKey);
+                const isPaidInOtherReceipt = studentPayments.some(p => p.itemKey === itemKey && p.receiptNo !== receiptNo);
+
+                cb.checked = isPaidInThisReceipt;
+                cb.disabled = isPaidInOtherReceipt;
+                
+                if (isPaidInThisReceipt) {
+                    label.classList.add('month-editable');
+                    if(cb.dataset.itemType === 'custom') {
+                        const payment = paymentGroup.find(p => p.itemKey === itemKey);
+                        const amountInput = cb.closest('.relative').querySelector('.custom-fee-amount-input');
+                        if(amountInput && payment) {
+                            amountInput.value = payment.amount;
+                            amountInput.classList.remove('hidden');
+                        }
+                    }
+                } else if (isPaidInOtherReceipt) {
+                    label.classList.add('month-paid');
+                }
+            });
+        };
+
+        const exitEditMode = () => {
+            isEditMode = false;
+            editingPaymentGroup = {};
+            appContainer.classList.remove('edit-mode-active');
+            resetStudentSelection();
+            setupFeeEntryUI();
+        };
+        
+        const handleSave = async () => {
+            if (!selectedStudentId) { alert("Please select a student."); return; }
+            
+            const newlySelectedItems = Array.from(document.querySelectorAll('.fee-item-checkbox:checked:not(:disabled)'));
+            
+            if (newlySelectedItems.length === 0) {
+                alert("Please select at least one fee item to pay."); 
+                return;
+            }
+            
+            const receiptNo = parseInt(entryReceipt.value);
+            const paymentDate = entryDate.value;
+            const totalAmount = parseFloat(totalAmountInput.value);
+            const description = entryDescription.value.trim();
+
+            if (isNaN(receiptNo) || !paymentDate || isNaN(totalAmount)) { alert("Please fill all fields: Receipt No, Date, and Total Amount."); return; }
+            
+            const group = studentGroups.find(g => g.memberIds.includes(selectedStudentId));
+            const mainStudentName = getStudentById(selectedStudentId)?.name || '';
+
+            const itemNames = newlySelectedItems.map(cb => cb.nextElementSibling.textContent.trim()).join(', ');
+            
+            confirmTitle.textContent = translations[currentLang].confirm;
+            let messageHTML = `<div class="space-y-2 text-sm text-left">
+                <div><strong>${translations[currentLang].studentName}:</strong> ${mainStudentName}</div>
+                ${group ? `<p class="text-xs text-yellow-400">${translations[currentLang].groupPaymentConfirm}</p>` : ''}
+                <div><strong>${translations[currentLang].receiptNo}:</strong> ${receiptNo}</div>
+                <div><strong>${translations[currentLang].date}:</strong> ${paymentDate}</div>
+                ${itemNames ? `<div><strong>${translations[currentLang].feeItem}:</strong> ${itemNames}</div>` : ''}
+            `;
+            if(description) messageHTML += `<div><strong>${translations[currentLang].description}:</strong> ${description}</div>`;
+            messageHTML += `<div class="border-t border-gray-500 pt-2 mt-2"><strong>${translations[currentLang].totalAmount}:</strong> ₹${totalAmount.toFixed(2)}</div></div>`;
+            confirmMessage.innerHTML = messageHTML;
+            
+            confirmPopup.classList.remove('hidden');
+            confirmPopup.classList.add('flex');
+
+            confirmOk.onclick = async () => {
+                const originalText = confirmOk.innerHTML;
+                confirmOk.disabled = true;
+                confirmOk.innerHTML = `<div class="spinner"></div> <span class="ml-2">${translations[currentLang].saving}</span>`;
+
+                try {
+                    const batch = writeBatch(db);
+                    const commonPaymentData = { receiptNo, paymentDate, description };
+                    const finalTotalAmount = parseFloat(totalAmountInput.value) || 0;
+
+                    // 1. Handle Custom Fees first (they are always individual)
+                    const selectedCustomItems = Array.from(document.querySelectorAll('.fee-item-checkbox[data-item-type="custom"]:checked:not(:disabled)'));
+                    let totalCustomFeeAmount = 0;
+
+                    selectedCustomItems.forEach(cb => {
+                        const itemKey = cb.dataset.itemKey;
+                        const amountInput = cb.closest('.relative').querySelector('.custom-fee-amount-input');
+                        const amount = parseFloat(amountInput.value) || 0;
+                        
+                        totalCustomFeeAmount += amount;
+
+                        const paymentRef = doc(collection(db, `artifacts/${appId}/users/${userId}/payments`));
+                        batch.set(paymentRef, {
+                            ...commonPaymentData,
+                            studentId: selectedStudentId, // Always the selected student
+                            itemKey: itemKey,
+                            amount: amount
+                        });
+                    });
+
+                    // 2. Handle Monthly Fees
+                    const amountAvailableForMonthlyFees = finalTotalAmount - totalCustomFeeAmount;
+                    const selectedMonthlyItems = Array.from(document.querySelectorAll('.fee-item-checkbox[data-item-type="month"]:checked:not(:disabled)'));
+
+                    if (selectedMonthlyItems.length > 0 && amountAvailableForMonthlyFees >= 0) {
+                        const amountPerMonthItem = amountAvailableForMonthlyFees / selectedMonthlyItems.length;
+                        
+                        const group = studentGroups.find(g => g.memberIds.includes(selectedStudentId));
+                        const targetStudentIds = group ? group.memberIds : [selectedStudentId];
+
+                        selectedMonthlyItems.forEach(cb => {
+                            const itemKey = cb.dataset.itemKey;
+                            
+                            targetStudentIds.forEach(currentStudentId => {
+                                const paymentRef = doc(collection(db, `artifacts/${appId}/users/${userId}/payments`));
+                                batch.set(paymentRef, {
+                                    ...commonPaymentData,
+                                    studentId: currentStudentId,
+                                    itemKey: itemKey,
+                                    amount: amountPerMonthItem
+                                });
+                            });
+                        });
+                    }
+
+                    await batch.commit();
+                    await updateSettings({ nextReceiptNo: receiptNo + 1 });
+                    
+                    alert("Payment saved successfully!");
+                    exitEditMode();
+                } catch (error) {
+                    console.error("Error saving payment:", error);
+                    alert("Failed to save payment.");
+                } finally {
+                    confirmOk.disabled = false;
+                    confirmOk.innerHTML = originalText;
+                    confirmPopup.classList.add('hidden');
+                }
+            }
+        };
+
+        const handleUpdate = async () => {
+            if (!selectedStudentId || !isEditMode) return;
+
+            const newlySelectedItems = Array.from(document.querySelectorAll('.fee-item-checkbox:checked:not(:disabled)'));
+
+            const newReceiptNo = parseInt(entryReceipt.value);
+            const newPaymentDate = entryDate.value;
+            const newTotalAmount = parseFloat(totalAmountInput.value);
+            const newDescription = entryDescription.value.trim();
+
+            if (isNaN(newReceiptNo) || !newPaymentDate || isNaN(newTotalAmount)) {
+                alert("Please fill all fields correctly.");
+                return;
+            }
+            
+            const originalReceiptNo = editingPaymentGroup.receiptNo;
+            const paymentsToDeleteQuery = query(collection(db, `artifacts/${appId}/users/${userId}/payments`), where("receiptNo", "==", originalReceiptNo));
+            const paymentsToDeleteSnapshot = await getDocs(paymentsToDeleteQuery);
+
+            confirmTitle.textContent = `${translations[currentLang].update} ${translations[currentLang].confirm}`;
+            confirmMessage.innerHTML = `<p>Confirm update?</p>`;
+
+            confirmPopup.classList.remove('hidden');
+            confirmPopup.classList.add('flex');
+
+            confirmOk.onclick = async () => {
+                const originalText = confirmOk.innerHTML;
+                confirmOk.disabled = true;
+                confirmOk.innerHTML = `<div class="spinner"></div> <span class="ml-2">${translations[currentLang].updating}</span>`;
+
+                try {
+                    const batch = writeBatch(db);
+                    // Delete all old payments associated with this receipt number
+                    paymentsToDeleteSnapshot.forEach(doc => batch.delete(doc.ref));
+                    
+                    // Re-create payments with the new logic
+                    const commonPaymentData = { receiptNo: newReceiptNo, paymentDate: newPaymentDate, description: newDescription };
+                    const finalTotalAmount = parseFloat(totalAmountInput.value) || 0;
+
+                    // 1. Handle Custom Fees
+                    const selectedCustomItems = Array.from(document.querySelectorAll('.fee-item-checkbox[data-item-type="custom"]:checked:not(:disabled)'));
+                    let totalCustomFeeAmount = 0;
+
+                    selectedCustomItems.forEach(cb => {
+                        const itemKey = cb.dataset.itemKey;
+                        const amountInput = cb.closest('.relative').querySelector('.custom-fee-amount-input');
+                        const amount = parseFloat(amountInput.value) || 0;
+                        totalCustomFeeAmount += amount;
+                        
+                        const paymentRef = doc(collection(db, `artifacts/${appId}/users/${userId}/payments`));
+                        batch.set(paymentRef, {
+                            ...commonPaymentData,
+                            studentId: selectedStudentId,
+                            itemKey: itemKey,
+                            amount: amount
+                        });
+                    });
+
+                    // 2. Handle Monthly Fees
+                    const amountAvailableForMonthlyFees = finalTotalAmount - totalCustomFeeAmount;
+                    const selectedMonthlyItems = Array.from(document.querySelectorAll('.fee-item-checkbox[data-item-type="month"]:checked:not(:disabled)'));
+
+                    if (selectedMonthlyItems.length > 0 && amountAvailableForMonthlyFees >= 0) {
+                        const amountPerMonthItem = amountAvailableForMonthlyFees / selectedMonthlyItems.length;
+                        const group = studentGroups.find(g => g.memberIds.includes(selectedStudentId));
+                        const targetStudentIds = group ? group.memberIds : [selectedStudentId];
+
+                        selectedMonthlyItems.forEach(cb => {
+                            const itemKey = cb.dataset.itemKey;
+                            targetStudentIds.forEach(currentStudentId => {
+                                const paymentRef = doc(collection(db, `artifacts/${appId}/users/${userId}/payments`));
+                                batch.set(paymentRef, {
+                                    ...commonPaymentData,
+                                    studentId: currentStudentId,
+                                    itemKey: itemKey,
+                                    amount: amountPerMonthItem
+                                });
+                            });
+                        });
+                    }
+
+                    await batch.commit();
+                    alert("Payment updated successfully!");
+                    exitEditMode();
+                } catch (error) {
+                    console.error("Error updating payment:", error);
+                    alert("Failed to update payment.");
+                } finally {
+                    confirmOk.disabled = false;
+                    confirmOk.innerHTML = originalText;
+                    confirmPopup.classList.add('hidden');
+                }
+            };
+        };
+
+        const populateFeeItemSelection = () => {
+            feeItemSelectionContainer.innerHTML = '';
+            
+            const itemsToRender = [...feeItems];
+
+            feeItemSelectionContainer.innerHTML = itemsToRender.filter(m => m.isVisible).map(item => `
+                <div class="relative">
+                    <input type="checkbox" id="item-${item.key}" data-item-key="${item.key}" data-item-type="${item.type || 'month'}" class="fee-item-checkbox peer sr-only">
+                    <label for="item-${item.key}" class="block py-1 px-2 text-xs border rounded-md cursor-pointer text-center peer-checked:bg-blue-600 peer-checked:text-white peer-checked:border-blue-500">
+                        ${item.name}
+                    </label>
+                    ${item.type === 'custom' ? `<input type="number" class="custom-fee-amount-input hidden w-full mt-1 p-1 text-xs border rounded-md bg-gray-700 border-gray-500" placeholder="Amount">` : ''}
+                </div>
+            `).join('');
+            
+            if(selectedStudentId) {
+                document.querySelectorAll('.fee-item-checkbox').forEach(cb => {
+                    const itemKey = cb.dataset.itemKey;
+                    const payment = payments.find(p => p.studentId === selectedStudentId && p.itemKey === itemKey);
+                    const label = cb.nextElementSibling;
+                    
+                    label.classList.remove('month-paid');
+                    cb.checked = false; // Reset first
+                    cb.disabled = !!payment;
+                    
+                    if (payment) {
+                        cb.checked = true;
+                        label.classList.add('month-paid');
+                    }
+                });
+            }
+            updateTotalAmount();
+        };
+
+        // --- TABLE RENDERING ---
+        const createFeeTable = (studentList, container) => {
+            if (studentList.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-400 py-4">${translations[currentLang].noData}</p>`;
+                return;
+            }
+            
+            feeStatusTitleHeader.textContent = feeStatusTitle || translations[currentLang].feeStatus;
+
+            const visibleItemObjects = [...feeItems].filter(m => m.isVisible);
+
+            const itemHeaders = visibleItemObjects.map(m => `<th class="p-2 border border-gray-600">${m.name}</th>`).join('');
+            
+            let tableHtml = `<table class="w-full text-sm text-left border-collapse">
+                <thead class="table-header">
+                    <tr>
+                        <th class="p-2 border border-gray-600" data-lang-key="student">${translations[currentLang].student}</th>
+                        ${itemHeaders}
+                    </tr>
+                </thead>
+                <tbody>`;
+
+            const groupedData = getGroupedAndSortedData(studentList);
+
+            groupedData.forEach(group => {
+                const genderText = group.gender === 'Male' ? translations[currentLang].male : translations[currentLang].female;
+                tableHtml += `<tr class="bg-gray-700 font-bold"><td colspan="${visibleItemObjects.length + 1}" class="p-2 border border-gray-600">${group.class} - ${genderText}</td></tr>`;
+                group.students.sort((a,b) => a.sno - b.sno).forEach(student => {
+                    tableHtml += `<tr><td class="p-2 border border-gray-600 font-medium">${student.sno}. ${student.name}</td>`;
+                    
+                    visibleItemObjects.forEach(item => {
+                        const payment = payments.find(p => p.studentId === student.id && p.itemKey === item.key);
+                        if (payment) {
+                            if (item.type === 'custom') {
+                                tableHtml += `<td class="p-2 border border-gray-600 text-center bg-green-800">
+                                    <div class="text-sm">₹${payment.amount.toFixed(0)}</div>
+                                </td>`;
+                            } else {
+                                tableHtml += `<td class="p-2 border border-gray-600 text-center bg-green-800">
+                                    <div class="text-xs">R:${payment.receiptNo}</div>
+                                    <div class="text-xs">${new Date(payment.paymentDate).toLocaleDateString('en-GB')}</div>
+                                </td>`;
+                            }
+                        } else {
+                            tableHtml += `<td class="p-2 border border-gray-600 text-center">-</td>`;
+                        }
+                    });
+                    tableHtml += `</tr>`;
+                });
+            });
+
+            tableHtml += `</tbody></table>`;
+            container.innerHTML = tableHtml;
+        };
+        
+        const renderFeeTable = () => {
+            const filteredClass = filterClass.value;
+            const filteredGender = filterGender.value;
+
+            let filteredStudents = students;
+            if (filteredClass !== 'all') filteredStudents = filteredStudents.filter(s => s.class === filteredClass);
+            if (filteredGender !== 'all') filteredStudents = filteredStudents.filter(s => s.gender === filteredGender);
+            
+            createFeeTable(filteredStudents, feeTableContainer);
+        };
+        
+        const getGroupedAndSortedData = (studentList) => {
+             const groupedData = studentList.reduce((acc, student) => {
+                const key = `${student.class}#${student.gender}`;
+                if (!acc[key]) {
+                    acc[key] = { class: student.class, gender: student.gender, students: [] };
+                }
+                acc[key].students.push(student);
+                return acc;
+            }, {});
+
+            const sortedGroupKeys = Object.keys(groupedData).sort((a, b) => {
+                const [classA, genderA] = a.split('#');
+                const [classB, genderB] = b.split('#');
+                
+                const classCompare = classA.localeCompare(classB, undefined, { numeric: true });
+                if (classCompare !== 0) return classCompare;
+                
+                if (genderA === genderB) return 0;
+                if (genderA === 'Male') return -1;
+                if (genderB === 'Male') return 1;
+                return genderA.localeCompare(genderB);
+            });
+            return sortedGroupKeys.map(key => groupedData[key]);
+        };
+
+        const renderHistoryPage = () => {
+            historyContentContainer.innerHTML = '';
+            
+            const groupedByReceiptAndStudent = payments.reduce((acc, p) => {
+                const key = `${p.receiptNo}-${p.studentId}`;
+                if (!acc[key]) {
+                    acc[key] = {
+                        receiptNo: p.receiptNo, studentId: p.studentId, paymentDate: p.paymentDate,
+                        description: p.description || '', items: [], totalAmount: 0,
+                    };
+                }
+                acc[key].items.push(p.itemKey);
+                acc[key].totalAmount += p.amount;
+                return acc;
+            }, {});
+
+            const sortedHistory = Object.values(groupedByReceiptAndStudent).sort((a, b) => b.receiptNo - a.receiptNo);
+
+            if (sortedHistory.length === 0) {
+                historyContentContainer.innerHTML = `<p class="text-center text-gray-400 py-4">${translations[currentLang].noData}</p>`;
+                return;
+            }
+
+            let tableHtml = `<table class="w-full text-sm text-left border-collapse">
+                <thead class="table-header">
+                    <tr>
+                        <th class="p-2 border border-gray-600">${translations[currentLang].receiptNo}</th>
+                        <th class="p-2 border border-gray-600">${translations[currentLang].date}</th>
+                        <th class="p-2 border border-gray-600">${translations[currentLang].studentName}</th>
+                        <th class="p-2 border border-gray-600">${translations[currentLang].monthCount}</th>
+                        <th class="p-2 border border-gray-600">${translations[currentLang].description}</th>
+                        <th class="p-2 border border-gray-600">${translations[currentLang].totalAmount}</th>
+                        <th class="p-2 border border-gray-600 text-center">${translations[currentLang].actions}</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+
+            sortedHistory.forEach(item => {
+                const student = getStudentById(item.studentId);
+                if (student) {
+                    const itemCountText = `${item.items.length} Items`;
+                    
+                    tableHtml += `<tr class="border-b border-gray-700 hover:bg-gray-600">
+                        <td class="p-2 border border-gray-600">${item.receiptNo}</td>
+                        <td class="p-2 border border-gray-600">${new Date(item.paymentDate).toLocaleDateString('en-GB')}</td>
+                        <td class="p-2 border border-gray-600">${student.sno}. ${student.name} (${student.class})</td>
+                        <td class="p-2 border border-gray-600 text-center">${itemCountText}</td>
+                        <td class="p-2 border border-gray-600">${item.description || ''}</td>
+                        <td class="p-2 border border-gray-600">₹${item.totalAmount.toFixed(2)}</td>
+                        <td class="p-2 border border-gray-600 text-center space-x-2">
+                           <button class="edit-payment-btn text-blue-400 hover:text-blue-300 p-1" title="${translations[currentLang].edit}" data-student-id="${item.studentId}" data-receipt-no="${item.receiptNo}">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L16.732 3.732z" />
+                                </svg>
+                           </button>
+                           <button class="delete-payment-btn text-red-500 hover:text-red-700 p-1" title="${translations[currentLang].delete}" data-student-id="${item.studentId}" data-receipt-no="${item.receiptNo}">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                   <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                           </button>
+                        </td>
+                    </tr>`;
+                }
+            });
+
+            tableHtml += `</tbody></table>`;
+            historyContentContainer.innerHTML = tableHtml;
+        };
+
+        const renderMonthlyCollectedPage = (searchTerm = '') => {
+            monthlyCollectedContainer.innerHTML = '';
+            const lowerCaseSearchTerm = searchTerm.toLowerCase();
+
+            if (searchTerm) {
+                const matchingStudents = students.filter(s => s.name.toLowerCase().includes(lowerCaseSearchTerm));
+
+                if (matchingStudents.length === 1) {
+                    const student = matchingStudents[0];
+                    const studentPayments = payments.filter(p => p.studentId === student.id);
+                    const paymentsByItem = studentPayments.reduce((acc, p) => {
+                        acc[p.itemKey] = p;
+                        return acc;
+                    }, {});
+
+                    let reportText = '';
+                    reportText += `NAME   : ${student.name.toUpperCase()}\n`;
+                    reportText += `CLASS  : ${student.class}\n`;
+                    reportText += `R. No. : ${student.sno}\n`;
+                    
+                    let monthlyText = '';
+                    let customText = '';
+                    let hasMonthlyFees = false;
+                    let hasCustomFees = false;
+
+                    feeItems.forEach(item => {
+                        const payment = paymentsByItem[item.key];
+                        if (payment) {
+                            if (item.type === 'month') {
+                                hasMonthlyFees = true;
+                                const receiptNoPadded = `RCPT NO : ${payment.receiptNo}`.padEnd(18, ' ');
+                                monthlyText += `${receiptNoPadded}${item.name}\n`;
+                            } else if (item.type === 'custom') {
+                                hasCustomFees = true;
+                                const receiptNoPadded = `RCPT NO : ${payment.receiptNo}`.padEnd(18, ' ');
+                                customText += `${receiptNoPadded}${item.name} (₹${payment.amount})\n`;
+                            }
+                        }
+                    });
+
+                    if (hasMonthlyFees) {
+                        reportText += `\n--- ${translations[currentLang].month.toUpperCase()} ---\n${monthlyText}`;
+                    }
+                    if (hasCustomFees) {
+                        reportText += `\n--- ${translations[currentLang].otherFees.toUpperCase()} ---\n${customText}`;
+                    }
+                    if (!hasMonthlyFees && !hasCustomFees) {
+                        reportText += `\n${translations[currentLang].noData}\n`;
+                    }
+
+                    const whatsappText = `*${translations[currentLang].studentPaymentReport}*\n-----------------------\n${reportText}`;
+
+                    let reportHtml = `
+                        <div class="report-card text-white whitespace-pre-wrap">
+                            <div class="flex justify-between items-start">
+                                 <h3 class="text-lg font-bold mb-4" data-lang-key="studentPaymentReport">${translations[currentLang].studentPaymentReport}</h3>
+                                 <button id="back-to-monthly-view-btn" class="text-sm py-1 px-2 rounded-md bg-gray-500 hover:bg-gray-600" data-lang-key="back">${translations[currentLang].back}</button>
+                            </div>
+                            <pre class="leading-relaxed">${reportText}</pre>
+                        </div>
+                        <div class="mt-4 text-center">
+                            <button id="share-whatsapp-btn-monthly" data-share-text="${encodeURIComponent(whatsappText)}" class="inline-flex items-center gap-2 bg-green-500 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-green-600 transition">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.894 11.892-1.99 0-3.903-.52-5.58-1.452L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 4.315 1.731 6.086l.001.004l-1.27 4.625l4.753-1.249z"/></svg>
+                                <span data-lang-key="shareOnWhatsApp">${translations[currentLang].shareOnWhatsApp}</span>
+                            </button>
+                        </div>
+                    `;
+                    monthlyCollectedContainer.innerHTML = reportHtml;
+                    return; 
+                } else if (matchingStudents.length > 1) {
+                    let listHtml = `<div class="p-2 bg-gray-700 rounded-md">
+                        <h3 class="font-bold text-lg" data-lang-key="searchResults">${translations[currentLang].searchResults}</h3>
+                        <p class="text-sm text-gray-400 mb-2" data-lang-key="clickStudentToView">${translations[currentLang].clickStudentToView}</p>
+                        <ul class="space-y-1">`;
+                    matchingStudents.forEach(s => {
+                        listHtml += `<li><button class="w-full text-left p-2 rounded-md hover:bg-gray-600 monthly-student-select" data-student-name="${s.name}">${s.sno}. ${s.name} (${s.class})</button></li>`;
+                    });
+                    listHtml += `</ul></div>`;
+                    monthlyCollectedContainer.innerHTML = listHtml;
+                    return; 
+                }
+            }
+
+            let paymentsToRender = payments;
+            if (searchTerm) {
+                paymentsToRender = payments.filter(p => {
+                    const student = getStudentById(p.studentId);
+                    if (!student) return false;
+                    return (
+                        student.class.toLowerCase().includes(lowerCaseSearchTerm) ||
+                        p.receiptNo.toString().includes(lowerCaseSearchTerm)
+                    );
+                });
+            }
+
+            const groupedByPaymentMonth = paymentsToRender.reduce((acc, payment) => {
+                if (!payment.paymentDate) return acc;
+                const paymentMonthKey = payment.paymentDate.substring(0, 7);
+                if (!acc[paymentMonthKey]) acc[paymentMonthKey] = [];
+                acc[paymentMonthKey].push(payment);
+                return acc;
+            }, {});
+
+            const sortedMonthKeys = Object.keys(groupedByPaymentMonth).sort().reverse();
+
+            if (sortedMonthKeys.length === 0) {
+                monthlyCollectedContainer.innerHTML = `<p class="text-center text-gray-400 py-4">${translations[currentLang].noData}</p>`;
+                return;
+            }
+
+            const now = new Date();
+            const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            
+            sortedMonthKeys.forEach(monthKey => {
+                const paymentsForMonth = groupedByPaymentMonth[monthKey];
+                const [year, monthNum] = monthKey.split('-');
+                const monthTitle = new Date(year, monthNum - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+                
+                // --- START: New Accurate Total Calculation ---
+                const uniqueReceiptsSplit = {};
+                paymentsForMonth.forEach(p => {
+                    if (!uniqueReceiptsSplit[p.receiptNo]) {
+                        const studentIdForReceipt = p.studentId;
+                        const paymentsForThisTransaction = paymentsForMonth.filter(payment => payment.receiptNo === p.receiptNo && payment.studentId === studentIdForReceipt);
+                        
+                        let monthlyAmount = 0;
+                        let customAmount = 0;
+                        
+                        paymentsForThisTransaction.forEach(payment => {
+                            const item = feeItems.find(fi => fi.key === payment.itemKey);
+                            if (item && item.type === 'month') {
+                                monthlyAmount += payment.amount;
+                            } else {
+                                customAmount += payment.amount;
+                            }
+                        });
+                        
+                        uniqueReceiptsSplit[p.receiptNo] = { monthlyAmount, customAmount };
+                    }
+                });
+
+                const monthTotal = Object.values(uniqueReceiptsSplit).reduce((sum, data) => sum + data.monthlyAmount, 0);
+                const customFeeTotal = Object.values(uniqueReceiptsSplit).reduce((sum, data) => sum + data.customAmount, 0);
+                // --- END: New Accurate Total Calculation ---
+
+                const monthlyFeePayments = paymentsForMonth.filter(p => feeItems.find(fi => fi.key === p.itemKey && fi.type === 'month'));
+                const customFeePayments = paymentsForMonth.filter(p => feeItems.find(fi => fi.key === p.itemKey && fi.type === 'custom'));
+                
+                const isCurrentMonth = monthKey === currentMonthKey;
+
+                const monthContainer = document.createElement('div');
+                monthContainer.className = 'bg-gray-700 p-3 rounded-lg';
+                
+                let monthHtml = `
+                    <div class="flex justify-between items-center cursor-pointer month-header">
+                        <h3 class="text-md font-semibold">${monthTitle}</h3>
+                        <div class="flex items-center gap-4">
+                            <span class="font-medium text-sm">${translations[currentLang].monthlyTotal}: ₹${monthTotal.toFixed(2)}</span>
+                            <svg class="w-5 h-5 month-toggle-icon ${isCurrentMonth ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </div>
+                    </div>
+                    <div class="month-details-container overflow-x-auto mt-4 ${isCurrentMonth ? '' : 'hidden'}">`;
+                
+                if (monthlyFeePayments.length > 0) {
+                    monthHtml += `<table class="w-full text-sm text-left border-collapse">
+                        <thead class="table-header">
+                            <tr>
+                                <th class="p-2 border border-gray-600">${translations[currentLang].receiptNo}</th>
+                                <th class="p-2 border border-gray-600">${translations[currentLang].studentName}</th>
+                                <th class="p-2 border border-gray-600">${translations[currentLang].month}</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+                    const groupedMonthlyByReceipt = monthlyFeePayments.reduce((acc, p) => {
+                        const key = `${p.receiptNo}-${p.studentId}`;
+                        if (!acc[key]) acc[key] = { studentId: p.studentId, receiptNo: p.receiptNo, total: 0 };
+                        acc[key].total += p.amount;
+                        return acc;
+                    }, {});
+
+                    Object.values(groupedMonthlyByReceipt).sort((a,b) => a.receiptNo - b.receiptNo).forEach(data => {
+                        const student = getStudentById(data.studentId);
+                        monthHtml += `<tr class="border-b border-gray-700 hover:bg-gray-800">
+                            <td class="p-2 border border-gray-600">${data.receiptNo}</td>
+                            <td class="p-2 border border-gray-600">${student?.name || 'Unknown'}</td>
+                            <td class="p-2 border border-gray-600">₹${data.total.toFixed(2)}</td>
+                        </tr>`;
+                    });
+                    monthHtml += `</tbody></table>`;
+                }
+
+                if (customFeePayments.length > 0) {
+                    monthHtml += `<h4 class="text-sm font-semibold mt-4 mb-2">${translations[currentLang].otherFees}</h4>
+                        <table class="w-full text-sm text-left border-collapse">
+                            <thead class="table-header">
+                                <tr>
+                                    <th class="p-2 border border-gray-600">${translations[currentLang].receiptNo}</th>
+                                    <th class="p-2 border border-gray-600">${translations[currentLang].studentName}</th>
+                                    <th class="p-2 border border-gray-600">${translations[currentLang].feeItem}</th>
+                                    <th class="p-2 border border-gray-600">${translations[currentLang].amount}</th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
+                    customFeePayments.sort((a,b) => a.receiptNo - b.receiptNo).forEach(p => {
+                        const student = getStudentById(p.studentId);
+                        const item = feeItems.find(fi => fi.key === p.itemKey);
+                        monthHtml += `<tr class="border-b border-gray-700 hover:bg-gray-800">
+                            <td class="p-2 border border-gray-600">${p.receiptNo}</td>
+                            <td class="p-2 border border-gray-600">${student?.name || 'Unknown'}</td>
+                            <td class="p-2 border border-gray-600">${item?.name || p.itemKey}</td>
+                            <td class="p-2 border border-gray-600">₹${p.amount.toFixed(2)}</td>
+                        </tr>`;
+                    });
+                     monthHtml += `</tbody>
+                        <tfoot class="font-bold bg-gray-800">
+                            <tr>
+                                <td colspan="3" class="p-2 border border-gray-600 text-right">${translations[currentLang].total}</td>
+                                <td class="p-2 border border-gray-600">₹${customFeeTotal.toFixed(2)}</td>
+                            </tr>
+                        </tfoot>
+                     </table>`;
+                }
+
+                monthHtml += `</div>`;
+                monthContainer.innerHTML = monthHtml;
+                monthlyCollectedContainer.appendChild(monthContainer);
+            });
+        };
+        
+        // --- SETTINGS & MANAGE STUDENTS ---
+        const renderStudentList = (searchTerm = '') => {
+            const filteredStudents = students.filter(s => 
+                s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                s.sno.toString().includes(searchTerm)
+            );
+
+            if (filteredStudents.length === 0) {
+                studentListContainer.innerHTML = `<p class="text-center text-gray-400 py-4">${translations[currentLang].noStudentsFound}</p>`;
+                return;
+            }
+
+            const groupedByClassAndGender = getGroupedAndSortedData(filteredStudents);
+
+            let tableHtml = `<table class="w-full text-sm text-left">
+                    <thead class="table-header">
+                        <tr>
+                            <th class="p-2">${translations[currentLang].sNo}</th>
+                            <th class="p-2">${translations[currentLang].studentName}</th>
+                            <th class="p-2">${translations[currentLang].gender}</th>
+                            <th class="p-2 text-right">${translations[currentLang].actions}</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+            groupedByClassAndGender.forEach(group => {
+                const genderText = group.gender === 'Male' ? translations[currentLang].male : translations[currentLang].female;
+                tableHtml += `<tr class="bg-gray-700 font-bold"><td colspan="4" class="p-2">${group.class} - ${genderText}</td></tr>`;
+                
+                group.students.sort((a, b) => a.sno - b.sno).forEach(s => {
+                    tableHtml += `
+                        <tr class="border-b border-gray-700 hover:bg-gray-600">
+                            <td class="p-2">${s.sno}</td>
+                            <td class="p-2">${s.name}</td>
+                            <td class="p-2">${s.gender === 'Male' ? translations[currentLang].male : translations[currentLang].female}</td>
+                            <td class="p-2 text-right space-x-2">
+                                <button class="edit-student-btn text-blue-400 hover:text-blue-300 p-1" title="${translations[currentLang].edit}" data-student-id="${s.id}">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                      <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L16.732 3.732z" />
+                                    </svg>
+                                </button>
+                                <button class="delete-student-btn text-red-500 hover:text-red-700 p-1" title="${translations[currentLang].delete}" data-student-id="${s.id}">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                       <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            });
+
+            tableHtml += `</tbody></table>`;
+            studentListContainer.innerHTML = tableHtml;
+        };
+        
+        searchStudentInput.addEventListener('input', (e) => renderStudentList(e.target.value));
+
+        studentListContainer.addEventListener('click', e => {
+            const editBtn = e.target.closest('.edit-student-btn');
+            const deleteBtn = e.target.closest('.delete-student-btn');
+
+            if (editBtn) {
+                const studentId = editBtn.dataset.studentId;
+                const student = getStudentById(studentId);
+                if (student) {
+                    editingStudentId = studentId;
+                    editStudentClass.value = student.class;
+                    editStudentGender.value = student.gender;
+                    editStudentName.value = student.name;
+                    editStudentSno.value = student.sno;
+                    editStudentPopup.classList.remove('hidden');
+                    editStudentPopup.classList.add('flex');
+                }
+            }
+
+            if (deleteBtn) {
+                const studentId = deleteBtn.dataset.studentId;
+                const student = getStudentById(studentId);
+                
+                confirmTitle.textContent = "Confirm Deletion";
+                confirmMessage.innerHTML = `<p>Are you sure you want to delete ${student.name}? This will also remove all their payment history.</p>`;
+                confirmPopup.classList.remove('hidden');
+                confirmPopup.classList.add('flex');
+
+                confirmOk.onclick = async () => {
+                    const studentRef = doc(db, `artifacts/${appId}/users/${userId}/students`, studentId);
+                    await deleteDoc(studentRef);
+                    // Deleting related payments
+                    const paymentsQuery = query(collection(db, `artifacts/${appId}/users/${userId}/payments`), where("studentId", "==", studentId));
+                    const paymentsSnapshot = await getDocs(paymentsQuery);
+                    const batch = writeBatch(db);
+                    paymentsSnapshot.forEach(doc => batch.delete(doc.ref));
+                    await batch.commit();
+
+                    alert('Student and their payments deleted.');
+                    confirmPopup.classList.add('hidden');
+                    confirmPopup.classList.remove('flex');
+                };
+            }
+        });
+        
+        // --- DOWNLOADS ---
+        const downloadFeeStatusPDF = () => {
+            const filteredClass = filterClass.value;
+            const filteredGender = filterGender.value;
+            let studentList = students.filter(s => 
+                (filteredClass === 'all' || s.class === filteredClass) &&
+                (filteredGender === 'all' || s.gender === filteredGender)
+            );
+
+            const visibleItemObjects = [...feeItems].filter(m => m.isVisible);
+
+            const headers = [
+                translations[currentLang].student, 
+                ...visibleItemObjects.map(m => m.name)
+            ];
+            const body = [];
+            
+            const groupedData = getGroupedAndSortedData(studentList);
+
+            groupedData.forEach(group => {
+                const genderText = group.gender === 'Male' ? translations[currentLang].male : translations[currentLang].female;
+                const groupHeader = `${group.class} - ${genderText}`;
+                body.push([{ content: groupHeader, colSpan: headers.length, styles: { fontStyle: 'bold', fillColor: '#374151', textColor: '#FFFFFF' } }]);
+
+                group.students.sort((a,b) => a.sno - b.sno).forEach(student => {
+                    const row = [`${student.sno}. ${student.name}`];
+                    
+                    visibleItemObjects.forEach(item => {
+                        const payment = payments.find(p => p.studentId === student.id && p.itemKey === item.key);
+                        if (payment) {
+                            const cell = {
+                                styles: { 
+                                    fillColor: [22, 101, 52], // dark green bg
+                                    textColor: [255, 255, 255], // white text
+                                    halign: 'center' 
+                                }
+                            };
+                             if (item.type === 'custom') {
+                                cell.content = `${payment.amount.toFixed(0)}`;
+                            } else {
+                                cell.content = `R:${payment.receiptNo}`;
+                            }
+                            row.push(cell);
+                        } else {
+                            row.push({ content: '-', styles: { halign: 'center' } });
+                        }
+                    });
+                    body.push(row);
+                });
+            });
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: 'landscape', format: 'a4' });
+            
+            const pdfTitle = feeStatusTitle || translations[currentLang].feeStatus;
+            doc.setFontSize(18);
+            doc.text(pdfTitle, 14, 15);
+
+            doc.autoTable({
+                head: [headers],
+                body: body,
+                startY: 20,
+                theme: 'grid',
+                styles: { fontSize: 8, cellPadding: 1.5, overflow: 'linebreak' },
+                headStyles: { fillColor: [75, 85, 99] },
+            });
+
+            doc.save(`${pdfTitle}.pdf`);
+        };
+
+        feeDownloadPdfBtn.addEventListener('click', downloadFeeStatusPDF);
+
+        // --- SETTINGS & MANAGE STUDENTS ---
+        const renderClassList = () => {
+            classListContainer.innerHTML = '';
+            if(classes.length === 0) {
+                classListContainer.innerHTML = `<p class="text-gray-400">${translations[currentLang].noClassesFound}</p>`;
+                return;
+            }
+            classes.forEach(className => {
+                const classEl = document.createElement('div');
+                classEl.className = 'flex justify-between items-center bg-gray-700 p-2 rounded';
+                classEl.innerHTML = `
+                    <span>${className}</span>
+                    <div class="space-x-2">
+                        <button class="edit-class-btn text-blue-400 hover:text-blue-300 p-1" title="${translations[currentLang].edit}" data-class="${className}">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L16.732 3.732z" />
+                            </svg>
+                        </button>
+                        <button class="delete-class-btn text-red-500 hover:text-red-700 p-1" title="${translations[currentLang].delete}" data-class="${className}">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                               <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
+                    </div>
+                `;
+                classListContainer.appendChild(classEl);
+            });
+        };
+
+        classListContainer.addEventListener('click', e => {
+            if(e.target.closest('.edit-class-btn')) {
+                const oldClassName = e.target.closest('.edit-class-btn').dataset.class;
+                editingClassName = oldClassName;
+                editClassNameInput.value = oldClassName;
+                editClassPopup.classList.remove('hidden');
+                editClassPopup.classList.add('flex');
+            }
+            if(e.target.closest('.delete-class-btn')) {
+                const className = e.target.closest('.delete-class-btn').dataset.class;
+                confirmTitle.textContent = "Confirm Class Deletion";
+                confirmMessage.innerHTML = `<p class="font-bold text-red-400">Are you sure you want to delete class '${className}'?</p><p class="mt-2 text-sm text-gray-300">This will permanently remove all students and their payment history in this class.</p>`;
+                confirmPopup.classList.remove('hidden');
+                confirmPopup.classList.add('flex');
+
+                confirmOk.onclick = async () => {
+                    const studentIdsToDelete = students.filter(s => s.class === className).map(s => s.id);
+                    const batch = writeBatch(db);
+                    studentIdsToDelete.forEach(id => {
+                        batch.delete(doc(db, `artifacts/${appId}/users/${userId}/students`, id));
+                    });
+                    
+                    if(studentIdsToDelete.length > 0) {
+                        for (let i = 0; i < studentIdsToDelete.length; i += 30) {
+                            const chunk = studentIdsToDelete.slice(i, i + 30);
+                            if (chunk.length > 0) {
+                                const q = query(collection(db, `artifacts/${appId}/users/${userId}/payments`), where("studentId", "in", chunk));
+                                const paymentsSnapshot = await getDocs(q);
+                                paymentsSnapshot.forEach(paymentDoc => batch.delete(paymentDoc.ref));
+                            }
+                        }
+                    }
+                    
+                    await batch.commit();
+                    alert(`Class '${className}' and all its students have been deleted.`);
+                    confirmPopup.classList.add('hidden');
+                    confirmPopup.classList.remove('flex');
+                };
+            }
+        });
+
+        async function updateClassName(oldName, newName) {
+            const studentsToUpdateQuery = query(collection(db, `artifacts/${appId}/users/${userId}/students`), where("class", "==", oldName));
+            const snapshot = await getDocs(studentsToUpdateQuery);
+            
+            const batch = writeBatch(db);
+            snapshot.forEach(doc => {
+                batch.update(doc.ref, { class: newName });
+            });
+            await batch.commit();
+            alert(`Class '${oldName}' updated to '${newName}'.`);
+        }
+
+        async function updateSettings(dataToUpdate) {
+            const settingsRef = doc(db, `artifacts/${appId}/users/${userId}/settings`, 'config');
+            try {
+                await setDoc(settingsRef, dataToUpdate, { merge: true });
+            } catch (error) {
+                console.error("Error updating settings:", error);
+                alert("Failed to save settings.");
+            }
+        }
+
+        async function saveGeneralSettings() {
+            const settingsData = {
+                appName: appNameInput.value.trim(),
+                appSubtitle: appSubtitleInput.value.trim(),
+                feeStatusTitle: feeStatusTitleInput.value.trim(),
+                defaultFee: parseInt(defaultFeeInput.value) || 200
+            };
+            
+            if (!settingsData.appName) {
+                alert('App Name cannot be empty.');
+                return;
+            }
+            await updateSettings(settingsData);
+            alert('General settings saved successfully.');
+        }
+        saveGeneralSettingsBtn.addEventListener('click', saveGeneralSettings);
+
+        function renderFeeItemsManagement() {
+            feeItemsManagementContainer.innerHTML = feeItems.map((item) => {
+                const isCustom = item.type === 'custom';
+                return `
+                <div class="fee-item-entry flex items-center bg-gray-700 p-1 rounded-md" data-item-key="${item.key}">
+                    <div class="drag-handle p-2 text-gray-400 hover:text-white" title="${translations[currentLang].dragToReorder}">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                    </div>
+                    <span class="flex-grow ml-2">${item.name}</span>
+                    <div class="flex items-center">
+                        ${isCustom ? `
+                            <button class="toggle-fee-item-visibility-btn p-1 ${item.isVisible ? 'text-green-400' : 'text-gray-500'}" data-item-key="${item.key}" title="${item.isVisible ? 'Hide' : 'Show'}">
+                                <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.522 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.478 0-8.268-2.943-9.542 7z" /></svg>
+                            </button>
+                            <button class="delete-fee-item-btn text-red-500 hover:text-red-700 p-1" data-item-key="${item.key}" data-item-name="${item.name}" title="Delete item">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `}).join('');
+
+            // Initialize SortableJS
+            if (feeItemsManagementContainer.sortableInstance) {
+                feeItemsManagementContainer.sortableInstance.destroy();
+            }
+
+            feeItemsManagementContainer.sortableInstance = new Sortable(feeItemsManagementContainer, {
+                handle: '.drag-handle',
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                onEnd: async (evt) => {
+                    const itemElements = feeItemsManagementContainer.querySelectorAll('.fee-item-entry');
+                    const newKeyOrder = Array.from(itemElements).map(el => el.dataset.itemKey);
+                    
+                    const newFeeItems = newKeyOrder.map(key => {
+                        return feeItems.find(item => item.key === key);
+                    }).filter(Boolean); // Filter out undefined if an item was removed
+                    
+                    // Update the global state immediately to prevent flicker from Firestore update
+                    feeItems = newFeeItems; 
+                    
+                    // Save the new order to Firestore
+                    await updateSettings({ feeItems: newFeeItems });
+                }
+            });
+        }
+
+        feeItemsManagementContainer.addEventListener('click', async (e) => {
+            const deleteFeeBtn = e.target.closest('.delete-fee-item-btn');
+            const toggleVisibilityBtn = e.target.closest('.toggle-fee-item-visibility-btn');
+
+            if (deleteFeeBtn) {
+                const itemKey = deleteFeeBtn.dataset.itemKey;
+                const itemName = deleteFeeBtn.dataset.itemName;
+                confirmTitle.textContent = translations[currentLang].deleteFeeItemConfirmTitle;
+                confirmMessage.innerHTML = `<p>${translations[currentLang].deleteFeeItemConfirmMessage.replace('{{itemName}}', `<strong>${itemName}</strong>`)}</p>`;
+                confirmPopup.classList.remove('hidden');
+                confirmPopup.classList.add('flex');
+                confirmOk.onclick = async () => {
+                    feeItems = feeItems.filter(item => item.key !== itemKey);
+                    await updateSettings({ feeItems: feeItems });
+                    // No need to call render here, onSnapshot will do it.
+                    confirmPopup.classList.add('hidden');
+                };
+            }
+            
+            if(toggleVisibilityBtn) {
+                const itemKey = toggleVisibilityBtn.dataset.itemKey;
+                const itemIndex = feeItems.findIndex(item => item.key === itemKey);
+                if(itemIndex > -1) {
+                    feeItems[itemIndex].isVisible = !feeItems[itemIndex].isVisible;
+                    await updateSettings({ feeItems: feeItems });
+                    // No need to call render here, onSnapshot will do it.
+                }
+            }
+        });
+        
+        addCustomFeeBtn.addEventListener('click', async () => {
+            const feeName = newCustomFeeInput.value.trim();
+            if (!feeName) {
+                alert("Please enter a name for the custom fee.");
+                return;
+            }
+            const newFeeItem = {
+                key: `custom-${Date.now()}`,
+                name: feeName,
+                type: 'custom',
+                isVisible: true
+            };
+            const updatedFeeItems = [newFeeItem, ...feeItems];
+            await updateSettings({ feeItems: updatedFeeItems });
+            newCustomFeeInput.value = '';
+        });
+
+
+        // --- STUDENT GROUPING ---
+        const renderStudentGroups = () => {
+            const saveBtnContainer = document.getElementById('save-group-fees-container');
+            if (studentGroups.length === 0) {
+                studentGroupsList.innerHTML = `<p class="text-center text-gray-400 py-4" data-lang-key="noGroupsFound">${translations[currentLang].noGroupsFound}</p>`;
+                saveBtnContainer.classList.add('hidden');
+                return;
+            }
+            saveBtnContainer.classList.remove('hidden');
+            studentGroupsList.innerHTML = studentGroups.map((group, index) => {
+                const memberNames = group.memberIds.map(id => {
+                    const student = getStudentById(id);
+                    return student ? `<span class="bg-gray-600 text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full">${student.sno}. ${student.name} (${student.class})</span>` : '';
+                }).join('');
+
+                return `
+                    <div class="bg-gray-700 p-3 rounded-lg">
+                        <p class="font-semibold text-sm">Group ${index + 1}</p>
+                        <div class="flex flex-wrap gap-1 my-2">${memberNames}</div>
+                        <div class="flex justify-end items-center gap-2 mt-2">
+                             <label for="group-fee-${group.id}" class="text-sm font-medium" data-lang-key="groupFee">${translations[currentLang].groupFee}</label>
+                             <input type="number" id="group-fee-${group.id}" data-group-id="${group.id}" value="${group.fee || ''}" class="group-fee-input w-24 p-1 border rounded-md bg-gray-600 border-gray-500 text-sm">
+                             <button class="delete-group-btn text-red-500 hover:text-red-700 p-1" title="Delete Group" data-group-id="${group.id}">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                   <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                             </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        };
+        
+        async function saveGroupFees() {
+            const batch = writeBatch(db);
+            const inputs = document.querySelectorAll('.group-fee-input');
+            
+            inputs.forEach(input => {
+                const groupId = input.dataset.groupId;
+                const fee = parseInt(input.value);
+                const groupRef = doc(db, `artifacts/${appId}/users/${userId}/studentGroups`, groupId);
+                
+                if (!isNaN(fee) && fee > 0) {
+                    batch.update(groupRef, { fee: fee });
+                } else {
+                    batch.update(groupRef, { fee: 0 }); 
+                }
+            });
+
+            try {
+                await batch.commit();
+                alert('Group fees updated successfully!');
+            } catch (error) {
+                console.error("Error updating group fees: ", error);
+                alert("Failed to update group fees.");
+            }
+        }
+        document.getElementById('save-group-fees-btn').addEventListener('click', saveGroupFees);
+
+        const generateGroupDropdowns = (count) => {
+            groupCreationContainer.innerHTML = '';
+            if (count < 2) {
+                createGroupBtnContainer.classList.add('hidden');
+                return;
+            }
+            createGroupBtnContainer.classList.remove('hidden');
+
+            let dropdownHtml = '';
+            for (let i = 0; i < count; i++) {
+                dropdownHtml += `
+                    <div class="border-t border-gray-600 pt-4 space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-1">${translations[currentLang].class} ${i + 1}</label>
+                                <select class="group-class-select w-full p-2 border rounded-md bg-gray-600 border-gray-500" data-index="${i}">
+                                    <option value="">Select Class</option>
+                                    ${classes.map(c => `<option value="${c}">${c}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">${translations[currentLang].gender} ${i + 1}</label>
+                                <select class="group-gender-select w-full p-2 border rounded-md bg-gray-600 border-gray-500" data-index="${i}">
+                                    <option value="Male">${translations[currentLang].male}</option>
+                                    <option value="Female">${translations[currentLang].female}</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">${translations[currentLang].student} ${i + 1}</label>
+                            <select class="group-student-select w-full p-2 border rounded-md bg-gray-600 border-gray-500" id="group-student-select-${i}">
+                                <option value="">Select Student</option>
+                            </select>
+                        </div>
+                    </div>
+                `;
+            }
+            groupCreationContainer.innerHTML = dropdownHtml;
+        };
+
+        const handleDeletePayment = async (studentId, receiptNo) => {
+            const student = getStudentById(studentId);
+            if (!student) { alert("Student not found."); return; }
+
+            const group = studentGroups.find(g => g.memberIds.includes(studentId));
+            const targetStudentIds = group ? group.memberIds : [studentId];
+
+            let confirmMsg;
+            if (group) {
+                const memberNames = targetStudentIds.map(id => getStudentById(id)?.name).join(', ');
+                confirmMsg = `This student is in a group. Deleting this payment (Receipt No. ${receiptNo}) will remove it for all members: ${memberNames}. Are you sure?`;
+            } else {
+                confirmMsg = `Are you sure you want to delete payment with Receipt No. ${receiptNo} for ${student.name}?`;
+            }
+            
+            confirmTitle.textContent = translations[currentLang].deletePayment;
+            confirmMessage.innerHTML = `<p>${confirmMsg}</p>`;
+            confirmPopup.classList.remove('hidden');
+            confirmPopup.classList.add('flex');
+
+            confirmOk.onclick = async () => {
+                const batch = writeBatch(db);
+                // This query needs to be broader now, as we don't know just from the UI if it was a custom or group payment.
+                // We should delete all payments with this receipt number.
+                const paymentsQuery = query(
+                    collection(db, `artifacts/${appId}/users/${userId}/payments`),
+                    where("receiptNo", "==", receiptNo)
+                );
+
+                try {
+                    const snapshot = await getDocs(paymentsQuery);
+                    if (snapshot.empty) { alert("No matching payments found to delete."); return; }
+                    snapshot.forEach(doc => batch.delete(doc.ref));
+                    await batch.commit();
+                    alert("Payment deleted successfully.");
+                } catch (error) {
+                    console.error("Error deleting payment: ", error);
+                    alert("Failed to delete payment.");
+                } finally {
+                    confirmPopup.classList.add('hidden');
+                    confirmPopup.classList.remove('flex');
+                }
+            };
+        }
+        
+        // --- EVENT LISTENERS ---
+        filterClass.addEventListener('change', renderFeeTable);
+        filterGender.addEventListener('change', renderFeeTable);
+        entryClass.addEventListener('change', resetStudentSelection);
+        entryGender.addEventListener('change', resetStudentSelection);
+
+        const populateStudentSuggestions = (searchTerm = '') => {
+            const lowerCaseSearchTerm = searchTerm.toLowerCase();
+            const selectedClass = entryClass.value;
+            const selectedGender = entryGender.value;
+
+            const filteredStudents = students.filter(s => 
+                s.class === selectedClass && 
+                s.gender === selectedGender &&
+                (s.name.toLowerCase().includes(lowerCaseSearchTerm) || s.sno.toString().includes(lowerCaseSearchTerm))
+            ).sort((a, b) => a.sno - b.sno);
+
+            studentSuggestions.innerHTML = '';
+            if (filteredStudents.length > 0) {
+                filteredStudents.forEach(s => {
+                    const div = document.createElement('div');
+                    div.className = 'p-2 hover:bg-gray-600 cursor-pointer';
+                    div.textContent = `${s.sno}. ${s.name}`;
+                    div.dataset.studentId = s.id;
+                    div.dataset.studentName = `${s.sno}. ${s.name}`;
+                    studentSuggestions.appendChild(div);
+                });
+                studentSuggestions.classList.remove('hidden');
+            } else {
+                studentSuggestions.classList.add('hidden');
+            }
+        };
+
+        entryStudentInput.addEventListener('focus', () => {
+            populateStudentSuggestions(''); // Show full list on focus
+        });
+
+        entryStudentInput.addEventListener('input', (e) => {
+            populateStudentSuggestions(e.target.value);
+        });
+
+        studentSuggestions.addEventListener('click', (e) => {
+            if (e.target.dataset.studentId) {
+                selectedStudentId = e.target.dataset.studentId;
+                entryStudentInput.value = e.target.dataset.studentName;
+                studentSuggestions.classList.add('hidden');
+                populateFeeItemSelection();
+            }
+        });
+        
+        document.addEventListener('click', (e) => {
+            if (!studentComboboxContainer.contains(e.target)) {
+                studentSuggestions.classList.add('hidden');
+            }
+        });
+        
+        feeItemSelectionContainer.addEventListener('input', (e) => {
+            if (e.target.classList.contains('custom-fee-amount-input') || e.target.classList.contains('fee-item-checkbox')) {
+                updateTotalAmount();
+            }
+        });
+
+        feeItemSelectionContainer.addEventListener('change', (e) => {
+            if (e.target.classList.contains('fee-item-checkbox')) {
+                const itemType = e.target.dataset.itemType;
+                if (itemType === 'custom') {
+                    const amountInput = e.target.closest('.relative').querySelector('.custom-fee-amount-input');
+                    if (amountInput) {
+                        amountInput.classList.toggle('hidden', !e.target.checked);
+                        if (!e.target.checked) {
+                            amountInput.value = '';
+                        }
+                    }
+                }
+                updateTotalAmount();
+            }
+        });
+
+        historyContentContainer.addEventListener('click', e => {
+            const editBtn = e.target.closest('.edit-payment-btn');
+            if (editBtn) {
+                const studentId = editBtn.dataset.studentId;
+                const receiptNo = parseInt(editBtn.dataset.receiptNo);
+                startEditingPayment(studentId, receiptNo);
+                return;
+            }
+
+            const deleteBtn = e.target.closest('.delete-payment-btn');
+            if (deleteBtn) {
+                const studentId = deleteBtn.dataset.studentId;
+                const receiptNo = parseInt(deleteBtn.dataset.receiptNo);
+                handleDeletePayment(studentId, receiptNo);
+                return;
+            }
+        });
+
+        monthlyCollectedSearchInput.addEventListener('input', () => renderMonthlyCollectedPage(monthlyCollectedSearchInput.value));
+        
+        monthlyCollectedContainer.addEventListener('click', e => {
+            const header = e.target.closest('.month-header');
+            if (header) {
+                const details = header.nextElementSibling;
+                const icon = header.querySelector('.month-toggle-icon');
+                details.classList.toggle('hidden');
+                icon.classList.toggle('rotate-180');
+                return;
+            }
+
+            const studentSelectBtn = e.target.closest('.monthly-student-select');
+            if (studentSelectBtn) {
+                const studentName = studentSelectBtn.dataset.studentName;
+                monthlyCollectedSearchInput.value = studentName;
+                renderMonthlyCollectedPage(studentName);
+                return;
+            }
+
+            const backBtn = e.target.closest('#back-to-monthly-view-btn');
+            if (backBtn) {
+                monthlyCollectedSearchInput.value = '';
+                renderMonthlyCollectedPage('');
+                return;
+            }
+
+            const shareBtn = e.target.closest('#share-whatsapp-btn-monthly');
+            if (shareBtn) {
+                const textToShare = shareBtn.dataset.shareText;
+                window.open(`https://wa.me/?text=${textToShare}`, '_blank');
+                return;
+            }
+        });
+
+        confirmCancel.addEventListener('click', () => {
+            confirmPopup.classList.add('hidden');
+            confirmPopup.classList.remove('flex');
+            confirmOk.onclick = null;
+        });
+        
+        saveFeeBtn.addEventListener('click', handleSave);
+        updateFeeBtn.addEventListener('click', handleUpdate);
+        cancelEditBtn.addEventListener('click', exitEditMode);
+        
+        numOfStudentsGroupInput.addEventListener('input', (e) => {
+            const count = parseInt(e.target.value) || 0;
+            generateGroupDropdowns(count);
+        });
+
+        groupCreationContainer.addEventListener('change', (e) => {
+            const target = e.target;
+            if (target.classList.contains('group-class-select') || target.classList.contains('group-gender-select')) {
+                const index = target.dataset.index;
+                const classSelect = groupCreationContainer.querySelector(`.group-class-select[data-index='${index}']`);
+                const genderSelect = groupCreationContainer.querySelector(`.group-gender-select[data-index='${index}']`);
+                const studentSelect = document.getElementById(`group-student-select-${index}`);
+
+                const selectedClass = classSelect.value;
+                const selectedGender = genderSelect.value;
+
+                if (selectedClass && selectedGender) {
+                    const filteredStudents = students
+                        .filter(s => s.class === selectedClass && s.gender === selectedGender)
+                        .sort((a,b) => a.sno - b.sno);
+                    studentSelect.innerHTML = '<option value="">Select Student</option>' + filteredStudents.map(s => `<option value="${s.id}">${s.sno}. ${s.name}</option>`).join('');
+                }
+            }
+        });
+
+        createGroupBtn.addEventListener('click', async () => {
+            const studentSelects = document.querySelectorAll('.group-student-select');
+            const memberIds = Array.from(studentSelects).map(select => select.value).filter(id => id);
+
+            if (memberIds.length < 2 || memberIds.length !== studentSelects.length) {
+                alert('Please select all students for the group.');
+                return;
+            }
+
+            const uniqueMemberIds = [...new Set(memberIds)];
+            if (uniqueMemberIds.length !== memberIds.length) {
+                alert('Please select unique students. A student cannot be in a group more than once.');
+                return;
+            }
+
+            try {
+                await addDoc(collection(db, `artifacts/${appId}/users/${userId}/studentGroups`), { memberIds: uniqueMemberIds });
+                alert('Group created successfully!');
+                numOfStudentsGroupInput.value = '';
+                generateGroupDropdowns(0);
+            } catch (error) {
+                console.error("Error creating group: ", error);
+                alert("Failed to create group.");
+            }
+        });
+
+        studentGroupsList.addEventListener('click', e => {
+            const deleteBtn = e.target.closest('.delete-group-btn');
+            if (deleteBtn) {
+                const groupId = deleteBtn.dataset.groupId;
+                confirmTitle.textContent = "Confirm Group Deletion";
+                confirmMessage.innerHTML = `<p>Are you sure you want to delete this group? This will not delete students or their past payments, but they will no longer be linked for future payments.</p>`;
+                confirmPopup.classList.remove('hidden');
+                confirmPopup.classList.add('flex');
+
+                confirmOk.onclick = async () => {
+                    try {
+                        await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/studentGroups`, groupId));
+                        alert('Group deleted successfully.');
+                    } catch (error) {
+                        console.error("Error deleting group:", error);
+                        alert('Failed to delete group.');
+                    } finally {
+                        confirmPopup.classList.add('hidden');
+                        confirmPopup.classList.remove('flex');
+                    }
+                };
+            }
+        });
+
+        addMultipleStudentsBtn.addEventListener('click', async (event) => {
+            const btn = event.currentTarget;
+            const btnSpan = btn.querySelector('span');
+            const originalText = btnSpan.textContent;
+
+            const className = addStudentClass.value.trim().toUpperCase();
+            const gender = addStudentGender.value;
+            const names = addMultipleNames.value.split('\n').map(name => name.trim()).filter(name => name);
+
+            if (!className || !gender) {
+                alert('Please select a class and gender first.');
+                return;
+            }
+            if (names.length === 0) {
+                alert('Please enter at least one student name in the text area.');
+                return;
+            }
+
+            btn.disabled = true;
+            btnSpan.textContent = translations[currentLang].adding;
+
+            try {
+                const studentsInClassAndGender = students.filter(s => s.class === className && s.gender === gender);
+                let maxSno = Math.max(0, ...studentsInClassAndGender.map(s => s.sno));
+
+                const batch = writeBatch(db);
+                names.forEach((name, index) => {
+                    const sno = maxSno + 1 + index;
+                    const studentData = { sno, name, class: className, gender };
+                    const studentRef = doc(collection(db, `artifacts/${appId}/users/${userId}/students`));
+                    batch.set(studentRef, studentData);
+                });
+
+                await batch.commit();
+                alert(`${names.length} students added successfully.`);
+                addMultipleNames.value = '';
+            } catch (error) {
+                console.error("Error adding multiple students: ", error);
+                alert("An error occurred while adding students.");
+            } finally {
+                btn.disabled = false;
+                btnSpan.textContent = originalText;
+            }
+        });
+
+        editStudentCancelBtn.addEventListener('click', () => {
+            editStudentPopup.classList.add('hidden');
+            editStudentPopup.classList.remove('flex');
+            editingStudentId = null;
+        });
+
+        editStudentUpdateBtn.addEventListener('click', async () => {
+            const name = editStudentName.value.trim();
+            const className = editStudentClass.value.trim().toUpperCase();
+            const sno = parseInt(editStudentSno.value);
+            const gender = editStudentGender.value;
+
+            if (!name || !className || isNaN(sno)) {
+                alert('Please fill all fields correctly.');
+                return;
+            }
+
+            const q = query(collection(db, `artifacts/${appId}/users/${userId}/students`), where("class", "==", className), where("gender", "==", gender), where("sno", "==", sno));
+            const querySnapshot = await getDocs(q);
+            const isDuplicateSno = !querySnapshot.empty && querySnapshot.docs[0].id !== editingStudentId;
+
+            if(isDuplicateSno) {
+                alert(`Serial number ${sno} for ${gender} students already exists in class ${className}. Please use a different number.`);
+                return;
+            }
+
+            const studentData = { sno, name, class: className, gender };
+            const studentRef = doc(db, `artifacts/${appId}/users/${userId}/students`, editingStudentId);
+            try {
+                await updateDoc(studentRef, studentData);
+                alert('Student updated successfully.');
+                editStudentPopup.classList.add('hidden');
+                editStudentPopup.classList.remove('flex');
+                editingStudentId = null;
+            } catch (error) {
+                console.error("Error updating student:", error);
+                alert("Failed to update student details.");
+            }
+        });
+
+        editClassCancelBtn.addEventListener('click', () => {
+            editClassPopup.classList.add('hidden');
+            editClassPopup.classList.remove('flex');
+            editingClassName = null;
+        });
+
+        editClassUpdateBtn.addEventListener('click', () => {
+            const newClassName = editClassNameInput.value.trim().toUpperCase();
+            if (newClassName && newClassName !== editingClassName) {
+                updateClassName(editingClassName, newClassName);
+            }
+            editClassPopup.classList.add('hidden');
+            editClassPopup.classList.remove('flex');
+            editingClassName = null;
+        });
+        
+        // --- CLASS PROMOTION & DIVISION HELPERS ---
+
+        function romanToArabic(s) {
+            const upperS = s.toUpperCase();
+            if (!/^[IVXLCDM]+$/i.test(upperS)) return NaN;
+            
+            const romanMap = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };
+            let result = 0;
+            for (let i = 0; i < upperS.length; i++) {
+                const current = romanMap[upperS[i]];
+                const next = romanMap[upperS[i + 1]];
+                if (next && current < next) {
+                    result -= current;
+                } else {
+                    result += current;
+                }
+            }
+            return result;
+        }
+
+        function arabicToRoman(num) {
+            if (num < 1 || num > 3999) return num.toString();
+            const romanMatrix = [
+                [1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'],
+                [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'],
+                [5, 'V'], [4, 'IV'], [1, 'I']
+            ];
+            let result = '';
+            for (let i = 0; i < romanMatrix.length; i++) {
+                while (num >= romanMatrix[i][0]) {
+                    result += romanMatrix[i][1];
+                    num -= romanMatrix[i][0];
+                }
+            }
+            return result;
+        }
+        
+        // --- CLASS PROMOTION & DIVISION EVENT LISTENERS ---
+        
+        promoteAllBtn.addEventListener('click', async () => {
+            const promotionMap = {};
+            const unpromotedClasses = [];
+
+            classes.forEach(className => {
+                let promoted = false;
+                
+                let newClassName = className.replace(/\d+/g, (match) => {
+                    promoted = true;
+                    return parseInt(match, 10) + 1;
+                });
+
+                if (!promoted) {
+                    const parts = className.split(/(\s+|-)/);
+                    const newParts = parts.map(part => {
+                        if (promoted) return part;
+                        const arabic = romanToArabic(part);
+                        if (!isNaN(arabic) && arabic > 0) {
+                            promoted = true;
+                            return arabicToRoman(arabic + 1);
+                        }
+                        return part;
+                    });
+                    if (promoted) {
+                        newClassName = newParts.join('');
+                    }
+                }
+
+                if (promoted) {
+                    promotionMap[className] = newClassName;
+                } else {
+                    unpromotedClasses.push(className);
+                }
+            });
+
+            if (Object.keys(promotionMap).length === 0) {
+                alert("No classes with numbers found to promote.");
+                return;
+            }
+
+            let previewHtml = `<p>${translations[currentLang].promoteAllDesc}</p>
+                <table class="w-full text-sm my-4 text-left">
+                    <thead class="table-header"><tr><th class="p-2 border border-gray-600">${translations[currentLang].fromClass}</th><th class="p-2 border border-gray-600">To</th></tr></thead>
+                    <tbody>`;
+            for (const from in promotionMap) {
+                previewHtml += `<tr><td class="p-2 border border-gray-600">${from}</td><td class="p-2 border border-gray-600 font-bold text-green-400">${promotionMap[from]}</td></tr>`;
+            }
+            previewHtml += '</tbody></table>';
+
+            if (unpromotedClasses.length > 0) {
+                previewHtml += `<p class="mt-4 text-xs text-yellow-400">Note: The following classes will not be promoted: ${unpromotedClasses.join(', ')}.</p>`;
+            }
+
+            confirmMessage.innerHTML = previewHtml;
+            confirmTitle.textContent = translations[currentLang].promoteAllTitle;
+            confirmPopup.classList.remove('hidden');
+            confirmPopup.classList.add('flex');
+            
+            confirmOk.onclick = async () => {
+                 try {
+                    const batch = writeBatch(db);
+                    const studentsToPromoteQuery = query(collection(db, `artifacts/${appId}/users/${userId}/students`), where("class", "in", Object.keys(promotionMap)));
+                    const snapshot = await getDocs(studentsToPromoteQuery);
+                    
+                    snapshot.forEach(doc => {
+                        const student = doc.data();
+                        const newClass = promotionMap[student.class];
+                        if (newClass) {
+                            batch.update(doc.ref, { class: newClass });
+                        }
+                    });
+
+                    await batch.commit();
+                    alert('All applicable classes promoted successfully!');
+                } catch (error) {
+                    console.error("Error promoting all students:", error);
+                    alert("An error occurred during promotion.");
+                } finally {
+                    confirmPopup.classList.add('hidden');
+                    confirmPopup.classList.remove('flex');
+                }
+            }
+        });
+        
+        moveFromClassSelect.addEventListener('change', () => {
+            const selectedClass = moveFromClassSelect.value;
+            renderMoveStudentList(selectedClass);
+        });
+
+        function renderMoveStudentList(className) {
+            moveSelectedStudentsBtn.disabled = true;
+
+            if (!className) {
+                moveStudentListContainer.innerHTML = '';
+                moveStudentListContainer.classList.add('hidden');
+                return;
+            }
+
+            const studentsInClass = students.filter(s => s.class === className).sort((a, b) => a.sno - b.sno);
+            moveStudentListContainer.classList.remove('hidden');
+
+            if (studentsInClass.length === 0) {
+                moveStudentListContainer.innerHTML = `<p class="text-gray-400 p-2">${translations[currentLang].noStudentsFound}</p>`;
+                return;
+            }
+
+            let html = `
+                <div class="flex items-center border-b border-gray-500 pb-2 mb-2">
+                    <input type="checkbox" id="move-select-all" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                    <label for="move-select-all" class="ml-2 block text-sm font-bold">${translations[currentLang].selectAll}</label>
+                </div>
+            `;
+
+            studentsInClass.forEach(student => {
+                html += `
+                    <div class="flex items-center">
+                        <input type="checkbox" id="move-student-${student.id}" name="move-student" value="${student.id}" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 move-student-checkbox">
+                        <label for="move-student-${student.id}" class="ml-2 block text-sm">${student.sno}. ${student.name}</label>
+                    </div>
+                `;
+            });
+            moveStudentListContainer.innerHTML = html;
+        }
+        
+        moveStudentListContainer.addEventListener('change', (e) => {
+            if (e.target.id === 'move-select-all') {
+                const checkboxes = moveStudentListContainer.querySelectorAll('.move-student-checkbox');
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = e.target.checked;
+                });
+            }
+            
+            const anyChecked = moveStudentListContainer.querySelectorAll('.move-student-checkbox:checked').length > 0;
+            moveSelectedStudentsBtn.disabled = !anyChecked;
+        });
+
+        moveSelectedStudentsBtn.addEventListener('click', () => {
+            const selectedCheckboxes = moveStudentListContainer.querySelectorAll('.move-student-checkbox:checked');
+            const studentIdsToMove = Array.from(selectedCheckboxes).map(cb => cb.value);
+
+            if(studentIdsToMove.length === 0) {
+                alert("Please select students to move.");
+                return;
+            }
+            
+            const studentNames = studentIdsToMove.map(id => {
+                const student = getStudentById(id);
+                return `<li>${student.sno}. ${student.name}</li>`;
+            }).join('');
+
+            confirmTitle.textContent = translations[currentLang].moveStudentsToDivision;
+            confirmMessage.innerHTML = `
+                <p><strong>${translations[currentLang].studentsToMove}:</strong></p>
+                <ul class="list-disc list-inside my-2 text-sm">${studentNames}</ul>
+                <p class="text-xs text-yellow-400 mt-2">${translations[currentLang].moveStudentsSnoResetWarning}</p>
+                <hr class="border-gray-600 my-4">
+                <label for="new-division-name-input" class="block font-medium mb-2">${translations[currentLang].newDivisionName}:</label>
+                <input type="text" id="new-division-name-input" class="w-full p-2 border rounded-md bg-gray-500 border-gray-400" placeholder="${translations[currentLang].className}...">
+            `;
+            confirmPopup.classList.remove('hidden');
+            confirmPopup.classList.add('flex');
+
+            confirmOk.onclick = async () => {
+                const newDivisionName = document.getElementById('new-division-name-input').value.trim().toUpperCase();
+                if (!newDivisionName) {
+                    alert(translations[currentLang].enterNewDivisionName);
+                    return;
+                }
+                
+                try {
+                    const studentsToMove = studentIdsToMove.map(id => getStudentById(id)).filter(Boolean);
+                    studentsToMove.sort((a, b) => a.sno - b.sno);
+
+                    const batch = writeBatch(db);
+                    studentsToMove.forEach((student, index) => {
+                        const studentRef = doc(db, `artifacts/${appId}/users/${userId}/students`, student.id);
+                        batch.update(studentRef, { 
+                            class: newDivisionName,
+                            sno: index + 1 // Reset S.No starting from 1
+                        });
+                    });
+
+                    await batch.commit();
+                    alert("Students moved and roll numbers reset successfully!");
+                } catch(error) {
+                    console.error("Error moving students: ", error);
+                    alert("Failed to move students.");
+                } finally {
+                    confirmPopup.classList.add('hidden');
+                    moveFromClassSelect.value = '';
+                    renderMoveStudentList('');
+                }
+            };
+        });
+
+        // --- FIREBASE INITIALIZATION & DATA LISTENERS ---
+        async function main() {
+            const firebaseConfig = JSON.parse(__firebase_config);
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    userId = user.uid;
+                    
+                    const settingsRef = doc(db, `artifacts/${appId}/users/${userId}/settings`, 'config');
+                    const settingsSnap = await getDoc(settingsRef);
+                    if (!settingsSnap.exists()) {
+                        await setupDefaultData();
+                    }
+                    
+                    if(studentsUnsubscribe) studentsUnsubscribe();
+                    if(paymentsUnsubscribe) paymentsUnsubscribe();
+                    if(settingsUnsubscribe) settingsUnsubscribe();
+                    if(studentGroupsUnsubscribe) studentGroupsUnsubscribe();
+
+                    settingsUnsubscribe = onSnapshot(settingsRef, (docSnap) => {
+                        if (docSnap.exists()) {
+                            const data = docSnap.data();
+                            appName = data.appName || 'DSD 003- Fee Tracking App';
+                            appSubtitle = data.appSubtitle || '©2025 by muhammed sanjide.p';
+                            defaultFee = data.defaultFee || 200;
+                            feeStatusTitle = data.feeStatusTitle || '';
+                            feeItems = data.feeItems || [];
+                            nextReceiptNo = data.nextReceiptNo || 1;
+                        } 
+                        appNameHeader.textContent = appName;
+                        appSubtitleHeader.textContent = appSubtitle;
+                        appNameInput.value = appName;
+                        appSubtitleInput.value = appSubtitle;
+                        defaultFeeInput.value = defaultFee;
+                        
+                        if(document.getElementById('fee-page').offsetParent) renderFeeTable();
+                        if(document.getElementById('settings-page').offsetParent && document.getElementById('manage-fee-items-content').offsetParent) {
+                           renderFeeItemsManagement();
+                        }
+                        setLanguage(currentLang);
+                    });
+
+                    const studentsQuery = collection(db, `artifacts/${appId}/users/${userId}/students`);
+                    studentsUnsubscribe = onSnapshot(studentsQuery, (snapshot) => {
+                        students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        populateClassDropdowns();
+                        resetStudentSelection();
+                        if(document.getElementById('manage-students-content').offsetParent) renderStudentList();
+                        if(document.getElementById('fee-page').offsetParent) renderFeeTable();
+                        if(document.getElementById('manage-classes-content').offsetParent) {
+                            renderClassList();
+                            populatePromotionDivisionDropdowns();
+                        }
+                        if(document.getElementById('manage-groups-content').offsetParent) renderStudentGroups();
+                    });
+
+                    const paymentsQuery = collection(db, `artifacts/${appId}/users/${userId}/payments`);
+                    paymentsUnsubscribe = onSnapshot(paymentsQuery, (snapshot) => {
+                        payments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        if (!isEditMode) {
+                           setupFeeEntryUI();
+                        }
+                        if(document.getElementById('fee-page').offsetParent) renderFeeTable();
+                        if(document.getElementById('history-page').offsetParent) renderHistoryPage();
+                        if(document.getElementById('monthly-collected-page').offsetParent) renderMonthlyCollectedPage(monthlyCollectedSearchInput.value);
+                    });
+
+                    const groupsQuery = collection(db, `artifacts/${appId}/users/${userId}/studentGroups`);
+                    studentGroupsUnsubscribe = onSnapshot(groupsQuery, (snapshot) => {
+                        studentGroups = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        if(document.getElementById('manage-groups-content').offsetParent) renderStudentGroups();
+                    });
+                }
+            });
+
+            if (typeof __initial_auth_token !== 'undefined') {
+                await signInWithCustomToken(auth, __initial_auth_token);
+            } else {
+                await signInAnonymously(auth);
+            }
+            
+            entryDate.value = new Date().toISOString().slice(0, 10);
+            setActiveLink('home');
+            setLanguage('en'); // Set default language to English
+        }
+
+        async function setupDefaultData() {
+            const defaultFeeItems = [
+                { key: 'jan', name: 'January', type: 'month', isVisible: true },
+                { key: 'feb', name: 'February', type: 'month', isVisible: true },
+                { key: 'mar', name: 'March', type: 'month', isVisible: true },
+                { key: 'apr', name: 'April', type: 'month', isVisible: true },
+                { key: 'may', name: 'May', type: 'month', isVisible: true },
+                { key: 'jun', name: 'June', type: 'month', isVisible: true },
+                { key: 'jul', name: 'July', type: 'month', isVisible: true },
+                { key: 'aug', name: 'August', type: 'month', isVisible: true },
+                { key: 'sep', name: 'September', type: 'month', isVisible: true },
+                { key: 'oct', name: 'October', type: 'month', isVisible: true },
+                { key: 'nov', name: 'November', type: 'month', isVisible: true },
+                { key: 'dec', name: 'December', type: 'month', isVisible: true },
+            ];
+            
+            await updateSettings({
+                appName, 
+                appSubtitle, 
+                defaultFee, 
+                nextReceiptNo: 1, 
+                feeStatusTitle: '', 
+                feeItems: defaultFeeItems
+            });
+        }
+
+        main();
+    </script>
+</body>
+</html>
